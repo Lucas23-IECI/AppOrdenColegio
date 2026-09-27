@@ -41,3 +41,13 @@ Pruebas del 27 de septiembre de 2026 en Windows, Node 24 y Edge/Chromium. Fixtur
 Pendientes de realizar con el equipo: cámara Android/iPhone, formatos HEIC/HEVC, instalación en pantalla de inicio, comportamiento al bloquear el teléfono y cuota local. Una prueba automatizada con tamaño de pantalla móvil no sustituye estas comprobaciones.
 
 Límite actual de Storage: 50 MB por archivo. Las subidas necesitan la aplicación abierta y conexión; las capturas locales se conservan ante una interrupción. Los videos de otros dispositivos requieren señal.
+
+## Compatibilidad del ingreso con Brave
+
+Se diagnosticaron dos cierres del proceso principal de Brave 1.96.59 al escribir el correo. Ambos registraron `autofill-suggestions-shown-on-typing: 1,10,46,63`. En Chromium 154, ese registro corresponde a una comprobación que rechaza mezclar sugerencias de direcciones normales con sugerencias al escribir. Referencia: [BrowserAutofillManager](https://chromium.googlesource.com/chromium/src/+/refs/tags/154.0.8037.58/components/autofill/core/browser/foundations/browser_autofill_manager.cc).
+
+El formulario desactiva el autocompletado de nombre, código y correo para evitar la ruta de sugerencias al escribir, que está condicionada a `should_autocomplete()`. La contraseña mantiene su semántica de contraseña; el código de instalación se identifica como código y tiene un campo separado. No se cambian las preferencias ni los datos del navegador del usuario.
+
+El enlace de instalación/invitación se conserva en sessionStorage de la pestaña hasta ingresar, para que no desaparezca al recargar. Una prueba automatizada comprueba conservación, sustitución por una invitación, limpieza y almacenamiento bloqueado.
+
+La corrección publicada se comprobó en Brave 1.96.59 con un perfil aislado y una dirección ficticia guardada: 12 correos escritos tecla por tecla, recarga con conservación del enlace, envío interceptado sin crear usuarios y manejo de un enlace de instalación antiguo. No hubo cierres, errores JavaScript ni desbordamiento a 390 px. Esta prueba no reproduce las extensiones ni la configuración completa del perfil personal del usuario; queda pendiente su confirmación allí.
