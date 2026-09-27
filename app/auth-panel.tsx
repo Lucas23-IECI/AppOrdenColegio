@@ -1,5 +1,5 @@
 import {useEffect,useState} from 'react';
-import {ArrowRight,Copy,UserPlus,LogOut} from 'lucide-react';
+import {ArrowRight,Copy,UserPlus,LogOut,Eye,EyeOff} from 'lucide-react';
 import {api} from '../lib/sync';
 import type {User} from '../lib/model';
 import {readEntryLink,clearEntryLink} from '../lib/auth-entry';
@@ -7,13 +7,15 @@ export function AuthPanel(){
  const [entry]=useState(readEntryLink);
  const [mode,setMode]=useState<'login'|'setup'|'join'>(entry.inviteCode?'join':entry.setupKey?'setup':'login');
  const [key,setKey]=useState(entry.setupKey||entry.inviteCode);
+ const [showPassword,setShowPassword]=useState(false);
+ useEffect(()=>setShowPassword(false),[mode]);
  const [name,setName]=useState('');const [email,setEmail]=useState('');const [password,setPassword]=useState('');const [error,setError]=useState('');const [busy,setBusy]=useState(false);
  useEffect(()=>{void api<{needsSetup:boolean}>('auth/status').then(s=>{if(s.needsSetup)setMode('setup');else if(entry.setupKey){clearEntryLink();setMode('login');setKey('');}}).catch(e=>setError(e.message));if(location.hash)history.replaceState(null,'',location.pathname);},[entry]);
  return <section className="panel auth-panel"><p className="eyebrow">{mode==='setup'?'PRIMER INGRESO':mode==='join'?'ACCESO DEL EQUIPO':'TU REGISTRO'}</p><h2>{mode==='setup'?'Crea tu acceso de coordinador':mode==='join'?'Únete al equipo':'Entrar a Orden Colegio'}</h2><p className="subtle">{mode==='setup'?'Elige el correo y la contraseña que usarás en tus dispositivos.':mode==='join'?'Tu acceso es personal. Los registros del evento se comparten con el equipo.':'Usa tu correo y contraseña del evento.'}</p><form id="event-access" autoComplete="off" onSubmit={async e=>{e.preventDefault();setBusy(true);setError('');try{await api('auth/'+mode,{name,email,password,...(mode==='setup'?{setupKey:key}:mode==='join'?{code:key}:{})});clearEntryLink();location.reload();}catch(e){setError((e as Error).message);}finally{setBusy(false);}}}>
  {mode!=='login'&&<label className="field"><span>Tu nombre</span><input id="access-name" name="display-name" required minLength={2} maxLength={100} autoComplete="off" value={name} onChange={e=>setName(e.target.value)}/></label>}
  {mode!=='login'&&<label className="field"><span>{mode==='setup'?'Clave de instalación':'Código de invitación'}</span><input id="access-code" name="access-code" required type="text" autoComplete="off" autoCapitalize="none" spellCheck={false} value={key} onChange={e=>setKey(e.target.value)}/></label>}
  <label className="field"><span>Correo electrónico</span><input id="access-email" name="account-email" required type="email" inputMode="email" maxLength={254} autoCapitalize="none" autoCorrect="off" spellCheck={false} autoComplete="off" placeholder="tu@correo.cl" value={email} onChange={e=>setEmail(e.target.value)}/></label>
- <label className="field"><span>Contraseña{mode!=='login'?' · mínimo 12 caracteres':''}</span><input id="access-password" name="password" required type="password" minLength={mode==='login'?1:12} maxLength={200} autoComplete={mode==='login'?'current-password':'new-password'} value={password} onChange={e=>setPassword(e.target.value)}/></label>
+ <div className="field"><label className="password-label" htmlFor="access-password">Contraseña{mode!=='login'?' · mínimo 12 caracteres':''}</label><div className="password-field"><input id="access-password" name="password" required type={showPassword?'text':'password'} minLength={mode==='login'?1:12} maxLength={200} autoCapitalize="none" autoCorrect="off" spellCheck={false} autoComplete={showPassword?'off':mode==='login'?'current-password':'new-password'} value={password} onChange={e=>setPassword(e.target.value)}/><button type="button" className="password-toggle" aria-label={showPassword?'Ocultar contraseña':'Mostrar contraseña'} aria-controls="access-password" title={showPassword?'Ocultar contraseña':'Mostrar contraseña'} onClick={()=>setShowPassword(visible=>!visible)}>{showPassword?<EyeOff size={20} aria-hidden="true"/>:<Eye size={20} aria-hidden="true"/>}</button></div></div>
  {error&&<p className="auth-error" role="alert">{error}</p>}<button className="button primary" disabled={busy}>{busy?'Entrando…':mode==='login'?'Entrar':'Crear mi acceso'}<ArrowRight size={17}/></button></form>
  {mode!=='setup'&&<button className="text-button spaced" onClick={()=>{setMode(mode==='login'?'join':'login');setError('');}}>{mode==='login'?'Tengo un código de invitación':'Ya tengo acceso'}</button>}
  </section>;
