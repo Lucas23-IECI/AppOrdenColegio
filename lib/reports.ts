@@ -1,3 +1,4 @@
+import {remoteFile} from './http';
 import type {Room,Media,EventInfo,Phase} from './model';
 import {dateLabel,phaseTitle} from './model';
 import {fileBlob} from './local-store';
@@ -14,14 +15,14 @@ export function makeText(rooms:Room[],media:Media[],event:EventInfo,kind:ReportK
  lines.push('');}
  lines.push('Alcance: '+rooms.length+' espacio(s).','Los campos sin registrar no equivalen a conformidad.','Aceptación por parte del colegio: no registrada en la aplicación.','Firma de quien entrega: __________________________','Firma de quien recibe: __________________________');return lines.join('\n');
 }
-async function original(m:Media){const blob=await fileBlob(m.id);if(blob)return blob;if(m.status!=='ready')throw new Error('Falta el archivo '+m.name+' en este teléfono.');const response=await fetch('/api/media/'+m.id);if(!response.ok)throw new Error('No se pudo descargar '+m.name);return response.blob();}
+async function original(m:Media){const blob=await fileBlob(m.id);if(blob)return blob;if(m.status!=='ready')throw new Error('Falta el archivo '+m.name+' en este teléfono.');const response=await fetch(await remoteFile(m.id));if(!response.ok)throw new Error('No se pudo descargar '+m.name);return response.blob();}
 async function dataUrl(blob:Blob){return new Promise<string>((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result));reader.onerror=()=>reject(reader.error);reader.readAsDataURL(blob);});}
 export async function exportPdf(rooms:Room[],media:Media[],event:EventInfo,kind:ReportKind,photos:boolean){
  const {jsPDF}=await import('jspdf');const doc=new jsPDF({unit:'mm',format:'a4'});const margin=18;let y=20;let page=1;
  const clean=(s:string)=>s.replace(/→/g,' > ').replace(/·/g,' - ');
  function footer(){doc.setFontSize(8);doc.setTextColor(100);doc.text('Orden Colegio | '+event.location+' | Borrador',margin,287);doc.text(String(page),192,287,{align:'right'});}
  function next(){footer();doc.addPage();page++;y=20;}
- function line(text:string,size=10,bold=false){doc.setFont('helvetica',bold?'bold':'normal');doc.setFontSize(size);doc.setTextColor(25,34,52);const rows=doc.splitTextToSize(clean(text),174);for(const row of rows){if(y>270)next();doc.text(row,margin,y);y+=size*.48;}y+=2;}
+ function line(text:string,size=10,bold=false){doc.setFont('helvetica',bold?'bold':'normal');doc.setFontSize(size);doc.setTextColor(25,34,52);const rows=doc.splitTextToSize(clean(text),174);for(const row of rows){if(y>270){next();doc.setFont('helvetica',bold?'bold':'normal');doc.setFontSize(size);doc.setTextColor(25,34,52);}doc.text(row,margin,y);y+=size*.48;}y+=2;}
  line(reportTitle(kind),19,true);line(event.name,12,true);line(event.institution+' | '+event.location);line('Borrador - Emitido '+dateLabel(new Date().toISOString()),9);line('Coordinador: '+(event.coordinator||'Sin registrar'));y+=3;
  for(const r of rooms){if(y>220)next();line(r.site+' / '+r.name,14,true);line('Responsable: '+(r.responsible||'Sin asignar'),9);
  for(const item of r.items){line(item.name+': '+(kind!=='return'?'Recepción '+number(item.reception):'')+(kind==='comparison'?' / ':'')+(kind!=='reception'?'Devolución '+number(item.return):''));}
@@ -29,7 +30,7 @@ export async function exportPdf(rooms:Room[],media:Media[],event:EventInfo,kind:
  const files=media.filter(m=>m.roomId===r.id&&!m.deleted&&(kind==='comparison'||m.phase===kind));
  if(files.length)line('Evidencias ('+files.length+')',11,true);
  for(const m of files){line(phaseTitle(m.phase)+' / '+m.name+' / '+(m.status==='ready'?'Respaldado':'Pendiente de respaldo'),9);line('ID: '+m.id,8);if(m.note)line(m.note,9);
- if(photos&&m.mime.startsWith('image/')){try{let b=await fileBlob(m.id+':thumbnail');if(!b&&m.thumbnailReady){const res=await fetch('/api/media/'+m.id+'/thumbnail');if(res.ok)b=await res.blob();}if(!b)b=await original(m);const data=await dataUrl(b);const props=doc.getImageProperties(data);const width=Math.min(150,props.width);const height=Math.min(90,width*props.height/props.width);const adjustedWidth=height*props.width/props.height;if(y+height>270){next();line(r.name+' / '+phaseTitle(m.phase)+' / '+m.name,10,true);line('ID: '+m.id,8);}doc.addImage(data,props.fileType,margin,y,adjustedWidth,height);y+=height+6;}catch{line('Imagen no incluida: conservar el archivo original indicado en el índice.',9);}}
+ if(photos&&m.mime.startsWith('image/')){try{let b=await fileBlob(m.id+':thumbnail');if(!b&&m.thumbnailReady){const res=await fetch(await remoteFile(m.id,true));if(res.ok)b=await res.blob();}if(!b)b=await original(m);const data=await dataUrl(b);const props=doc.getImageProperties(data);const width=Math.min(150,props.width);const height=Math.min(90,width*props.height/props.width);const adjustedWidth=height*props.width/props.height;if(y+height>270){next();line(r.name+' / '+phaseTitle(m.phase)+' / '+m.name,10,true);line('ID: '+m.id,8);}doc.addImage(data,props.fileType,margin,y,adjustedWidth,height);y+=height+6;}catch{line('Imagen no incluida: conservar el archivo original indicado en el índice.',9);}}
  }y+=7;}
  line('Los campos sin registrar no equivalen a conformidad.',10,true);line('Aceptación del colegio: no registrada en la aplicación.',10);y+=8;line('Entrega: ____________________    Recibe: ____________________',10);footer();doc.save('OrdenColegio-'+kind+'-'+new Date().toISOString().slice(0,10)+'.pdf');
 }

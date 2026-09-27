@@ -1,7 +1,8 @@
+import {supabase} from './supabase';
 import {allRooms,allMedia,getRoomLocal,putRoom,putMedia,patchMedia,fileBlob,acceptSync,mergeServer,setMeta,type Bootstrap} from './local-store';
 import {plainRoom,type LocalRoom,type Media} from './model';
-export class HttpError extends Error{constructor(message:string,public status:number,public data:Record<string,unknown>={}){super(message);}}
-export async function api<T>(path:string,body?:unknown):Promise<T>{const response=await fetch('/api/'+path,{method:body===undefined?'GET':'POST',headers:body===undefined?undefined:{'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body),cache:'no-store'});const data=await response.json().catch(()=>({error:response.status===401?'La sesión necesita reconectarse.':'Respuesta inesperada del servidor.'})) as Record<string,unknown>;if(!response.ok)throw new HttpError(String(data.error??'No se pudo conectar.'),response.status,data);return data as T;}
+import {api,HttpError} from './http';
+export {api,HttpError} from './http';
 let syncing:Promise<void>|null=null;
 export function syncAll(notify:()=>void,status:(value:string)=>void):Promise<void>{if(syncing)return syncing;syncing=performSync(notify,status).finally(()=>{syncing=null;});return syncing;}
 async function performSync(notify:()=>void,status:(value:string)=>void){
@@ -23,12 +24,14 @@ async function performSync(notify:()=>void,status:(value:string)=>void){
  const pending=(await allRooms()).filter(r=>r.dirty).length+(await allMedia()).filter(m=>m.status!=='ready').length;status(pending?pending+' pendiente(s) de respaldo':'Respaldo al día');
 }
 async function uploadMedia(item:Media,notify:()=>void,status:(s:string)=>void){
- const blob=await fileBlob(item.id);if(!blob)throw new Error('Este teléfono no tiene el original. Revisa el teléfono que lo registró.');
- const init=await api<{ready?:boolean,parts?:{partNumber:number,etag:string}[],partSize:number}>('uploads/init',{id:item.id,roomId:item.roomId,phase:item.phase,name:item.name,mime:item.mime,size:item.size,createdAt:item.createdAt,note:item.note,category:item.category,duration:item.duration});
- if(!init.ready){const parts=init.parts??[];const total=Math.ceil(blob.size/init.partSize);item.status='uploading';item.error=undefined;await patchMedia(item.id,{status:'uploading',error:undefined});notify();
-  for(let n=1;n<=total;n++){if(parts.some(p=>p.partNumber===n))continue;status('Subiendo '+item.name+' · '+Math.round((n-1)/total*100)+'%');const chunk=blob.slice((n-1)*init.partSize,n*init.partSize);const res=await fetch('/api/uploads/'+item.id+'/part?number='+n,{method:'POST',body:chunk,headers:{'Content-Type':'application/octet-stream'}});if(!res.ok){const err=await res.json().catch(()=>({error:'Carga interrumpida.'})) as {error:string};throw new HttpError(err.error,res.status);}const part=await res.json() as {partNumber:number,etag:string};parts.push(part);item.parts=parts;item.progress=Math.round(n/total*100);await patchMedia(item.id,{parts,progress:item.progress,status:'uploading'});notify();}
+ const blob=await fileBlob(item.id);if(!blob)throw new Error('El original está en el teléfono que lo registró.');
+ const init=await api<{ready?:boolean,token:string,endpoint:string,bucket:string,objectPath:string}>('uploads/init',{id:item.id,roomId:item.roomId,phase:item.phase,name:item.name,mime:item.mime,size:item.size,createdAt:item.createdAt,note:item.note,category:item.category,duration:item.duration});
+ if(!init.ready){
+  await patchMedia(item.id,{status:'uploading',error:undefined});notify();const {Upload}=await import('tus-js-client');const {data:{session}}=await supabase.auth.getSession();if(!session)throw new HttpError('Tu sesión venció.',401);
+  await new Promise<void>((resolve,reject)=>{const upload=new Upload(blob,{endpoint:init.endpoint,headers:{authorization:'Bearer '+session.access_token},chunkSize:6*1024*1024,retryDelays:[0,1500,3000,5000],uploadDataDuringCreation:true,removeFingerprintOnSuccess:true,fingerprint:async()=>['orden',init.bucket,init.objectPath,item.size].join(':'),metadata:{bucketName:init.bucket,objectName:init.objectPath,contentType:item.mime,cacheControl:'3600'},onError:reject,onProgress:(sent,total)=>{const progress=Math.round(sent/total*100);status('Subiendo '+item.name+' · '+progress+'%');void patchMedia(item.id,{progress,status:'uploading'}).then(notify);},onSuccess:()=>resolve()});upload.findPreviousUploads().then(previous=>{if(previous.length)upload.resumeFromPreviousUpload(previous[0]);upload.start();}).catch(reject);});
   await api('uploads/'+item.id+'/complete',{});
  }
- const thumbnail=await fileBlob(item.id+':thumbnail');if(thumbnail&&!item.thumbnailReady){const res=await fetch('/api/uploads/'+item.id+'/thumbnail',{method:'POST',body:thumbnail,headers:{'Content-Type':'image/jpeg'}});if(res.ok)item.thumbnailReady=true;}
- await patchMedia(item.id,{status:'ready',progress:100,parts:undefined,error:undefined,thumbnailReady:item.thumbnailReady});notify();
+ const thumbnail=await fileBlob(item.id+':thumbnail');let thumbnailReady=item.thumbnailReady;
+ if(thumbnail&&!thumbnailReady){const data=await new Promise<string>((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(String(r.result).split(',')[1]);r.onerror=()=>reject(r.error);r.readAsDataURL(thumbnail);});try{await api('uploads/'+item.id+'/thumbnail',{base64:data});thumbnailReady=true;}catch{/* El original ya está respaldado; la miniatura se puede regenerar. */}}
+ await patchMedia(item.id,{status:'ready',progress:100,parts:undefined,error:undefined,thumbnailReady});notify();
 }

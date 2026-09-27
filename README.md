@@ -1,89 +1,82 @@
 # Orden Colegio
 
-Aplicación para recibir y devolver salas y otros espacios, con inventario, fotos, videos y observaciones. Preparada para el Liceo San Juan Bautista de Hualqui y los recintos del evento.
+Aplicación para recibir y devolver salas y otros espacios del evento en Hualqui. Inventario, estado, fotos y videos organizados por espacio y por recepción/devolución.
 
-**Funciona con su propio servidor y sus propios usuarios.** Cambiar la cuenta usada para programar no afecta el acceso de los encargados ni los archivos. GitHub contiene el código; los datos están en el servidor de la organización.
+**Publicada en [app-orden-colegio.vercel.app](https://app-orden-colegio.vercel.app).** Vercel sirve la aplicación y su API; Supabase guarda usuarios, registros y archivos privados. El acceso funciona con el correo y contraseña del evento, independientemente de la cuenta usada para programar.
 
-## Funciones
+## Uso
 
-- Crear, renombrar, archivar y recuperar salas, baños, biblioteca, estacionamiento y otros espacios; creación opcional de 18 salas.
-- Recepción y devolución separadas: cantidades, estado, observaciones, fotos y videos.
-- Captura desde cámara o galería y reproducción dentro de la aplicación.
-- Guardado primero en el teléfono y respaldo posterior; videos en bloques de 8 MB con reanudación.
-- Detección de cambios simultáneos y conservación de ambas versiones.
-- PDF con fotografías e índice de videos, texto y ZIP con originales.
-- Temas azul, naranjo y noche, sin degradados.
-- Usuarios personales, invitaciones de un uso y revocación de acceso.
+El primer coordinador recibe un enlace personal `/#setup=CLAVE` para crear su cuenta. Ese enlace solo permite la instalación mientras no exista coordinador. Después se ingresa con correo y contraseña.
 
-## Probar desde el celular
+1. Crear 18 salas con un botón, o añadir espacios individualmente. Editar nombre, tipo, recinto, sector y encargado; archivar y restaurar sin borrar registros.
+2. Abrir un espacio y registrar **Recepción**: cantidades, revisión del estado, fotos, videos y observaciones. Confirmar cuando esté completo.
+3. Revisar **Respaldo** hasta que indique que no hay pendientes en ese teléfono.
+4. Antes del recorrido, pulsar **Preparar uso sin señal**. Esto guarda la aplicación y las fotografías de recepción en el dispositivo.
+5. Al devolver, completar **Devolución**, comparar con la recepción y revisar las diferencias de inventario.
+6. Generar PDF con fotografías, texto o ZIP con originales desde **Informes**. Las versiones archivadas del texto quedan disponibles para el equipo.
 
-En Windows ejecutar **INICIAR-PRUEBA.cmd**. Inicia el servidor y obtiene un enlace HTTPS temporal mediante Cloudflare Tunnel, sin crear ni conectar cuentas. El acceso y el QR se guardan en `data/primer-acceso.html`.
+En **Ajustes → Equipo**, el coordinador genera invitaciones personales de un uso, válidas durante 48 horas. Los encargados pueden registrar espacios; solo el coordinador administra accesos, datos del evento y archivo/restauración de espacios. La aplicación no envía invitaciones automáticamente.
 
-La primera persona autorizada usa la clave local de instalación para crear su usuario y contraseña. La clave está en `data/setup-key.txt` y se elimina al completar la instalación. El enlace personal del QR la incorpora automáticamente. Después se entra con usuario y contraseña.
+Temas Bosque, Azul, Naranjo y Noche, todos con colores planos. El tema se conserva por dispositivo.
 
-En **Ajustes → Equipo**, el coordinador genera invitaciones de un solo uso, válidas durante 48 horas. La aplicación no envía mensajes por ti.
+## Archivos y trabajo sin señal
 
-**El computador debe permanecer encendido y conectado durante esta prueba.** El enlace puede cambiar al reiniciar el túnel. Los archivos y la base permanecen en `data/`. Este enlace temporal no es el alojamiento definitivo para el evento.
+- Cada foto o video se guarda primero en IndexedDB en el teléfono. Se distingue **En este teléfono**, progreso de carga y **Respaldado**.
+- Los originales se suben directamente a Supabase Storage mediante TUS, en bloques de 6 MB; no atraviesan el límite de cuerpo de las funciones de Vercel.
+- **Máximo actual: 50 MB por archivo.** Grabar clips cortos. ZIP de hasta 300 MB por exportación; para un registro mayor, exportar por espacio.
+- El navegador debe permanecer abierto para subir. Una interrupción conserva el original local y la carga se retoma al volver a abrir y conectar.
+- Las cantidades, observaciones y nuevas capturas funcionan sin señal después del primer ingreso y la preparación. Los videos grabados en ese dispositivo permanecen locales; reproducir videos de otros encargados necesita conexión.
+- No borrar los datos del navegador mientras haya pendientes. La cuota local depende del teléfono; la app solicita almacenamiento persistente, pero el navegador puede rechazarlo.
+- HEIC/HEVC depende del navegador. Se conserva el original aunque el dispositivo no permita previsualizarlo.
+- Si dos encargados modifican el mismo espacio, se conservan ambas versiones y se solicita compararlas antes de resolver el conflicto.
+- Añadir un elemento o corregir la recepción exige volver a confirmar las revisiones afectadas; conserva las cantidades y observaciones existentes.
 
-1. Abrir en Safari (iPhone) o Chrome (Android).
-2. Crear un espacio **Prueba**, registrar cantidades, una foto y un video corto.
-3. Abrir los archivos y comprobar **Respaldo → Sin pendientes en este teléfono**.
-4. Pulsar **Preparar uso sin señal** y añadir la app a la pantalla de inicio.
-5. Activar modo avión, cambiar una cantidad y tomar otra foto. Cerrar y abrir para comprobar el guardado.
-6. Reconectar, comprobar el respaldo y descargar un PDF en **Informes**.
+Los informes son borradores para revisar y firmar; la confirmación del encargado no representa aceptación del colegio.
 
 ## Desarrollo
 
-Node.js 22.13 o posterior; probado con Node 24. No requiere base de datos externa.
+Node.js 24. Copiar `.env.example` como `.env.local` y completar las variables de un proyecto Supabase. Nunca guardar claves privadas en Git.
 
 ```sh
 npm ci
 npm run dev
 ```
 
-Abrir `http://127.0.0.1:3000`. Para compilar y ejecutar:
+Abrir `http://127.0.0.1:5173`. El servidor de desarrollo atiende Vite y la misma API que se despliega en Vercel.
 
 ```sh
 npm run typecheck
 npm test
+npm run test:integration
 npm run build
-npm start
 ```
 
-Variables opcionales: `PORT` (3000), `HOST` (127.0.0.1), `DATA_DIR` (carpeta `data`). La base SQLite se inicializa automáticamente.
+La prueba de integración requiere las variables de `.env.local`. Crea usuarios, un espacio y un archivo temporales en Supabase, comprueba sus permisos y los elimina en su bloque de limpieza. Usar preferentemente un proyecto de pruebas.
 
-## Alojamiento permanente
+## Infraestructura
 
-Se incluyen `Dockerfile` y `compose.yaml` para un servidor propio o un proveedor elegido por la organización. No se crea ni contrata un alojamiento automáticamente.
+La instalación de este repositorio usa el proyecto Vercel `app-orden-colegio` y Supabase `wxulrvbhyjtfyqkqsehc`, región São Paulo. Las claves están en las variables de entorno de Vercel y archivos locales ignorados por Git.
 
-```sh
-docker compose up -d --build
-```
+Para reproducir el despliegue en otra instalación:
 
-El contenedor conserva datos en el volumen `colegio-data` y expone el puerto solo en localhost. Configurar un proxy HTTPS hacia el puerto 3000 que establezca `X-Forwarded-Proto: https`. La clave inicial está en `/app/data/setup-key.txt` dentro del contenedor. El acceso con Docker usa una base separada de la carpeta local, a menos que se migren los datos.
+1. Crear el proyecto Supabase y aplicar las migraciones de `supabase/migrations` mediante `supabase link --project-ref REF` y `supabase db push`.
+2. Configurar en Vercel las seis variables de `.env.example`. `INITIAL_SETUP_KEY` debe ser aleatoria y privada. `SUPABASE_SECRET_KEY` solo se usa en el servidor. Las dos variables `VITE_` y la clave publicable son configuración pública, protegida por las reglas de acceso.
+3. Desplegar con `vercel --prod`. `vercel.json` configura Vite, la API y el enrutamiento de la PWA. Puede vincularse el repositorio con Vercel para despliegues al publicar cambios.
+4. Crear el coordinador mediante el enlace de instalación. Conservar la clave fuera del repositorio; no compartirla como enlace de ingreso del equipo.
 
-Mantener copias de **todo el directorio de datos**, incluida la base SQLite y los originales. Para una copia simple y consistente, detener el servidor durante la copia. No borrar el volumen al actualizar.
+Auth verifica los tokens; la API comprueba que el miembro siga activo. Las tablas tienen RLS y solo son accesibles desde el servidor. Storage permite a cada miembro activo subir únicamente la ruta de un archivo previamente registrado a su nombre. El bucket `evidence` es privado; las descargas utilizan enlaces firmados de 15 minutos. Las revisiones se guardan mediante una transacción con control de versión e idempotencia.
 
-## Estructura
+Revisar consumo y cuotas en Supabase/Vercel según el volumen real. Respaldar la base y los objetos del bucket; la exportación ZIP permite conservar una copia de los originales junto al registro y al informe.
 
-- `app/colegio-app.tsx`: inventario, galería, reportes y respaldo.
-- `app/auth-panel.tsx`: ingreso e invitaciones.
-- `app/api/[...path]/route.ts`: reglas de registros y archivos.
-- `server/index.ts`: servidor HTTP y aplicación.
-- `server/auth.ts`: contraseñas scrypt, sesiones e invitaciones.
-- `server/storage.ts`: SQLite, archivos persistentes y streaming de videos.
-- `lib/local-store.ts` y `lib/sync.ts`: guardado local y sincronización.
-- `lib/reports.ts`: exportaciones.
-- `public/sw.js`: apertura sin conexión.
+## Código
 
-## Límites actuales
+- `app/colegio-app.tsx` y `app/globals.css`: interfaz y temas.
+- `app/auth-panel.tsx`: acceso y equipo.
+- `api/index.ts` y `server/cloud.ts`: API desplegada en Vercel.
+- `supabase/migrations`: tablas, transacciones y permisos.
+- `lib/local-store.ts`, `lib/sync.ts`: guardado local y sincronización.
+- `lib/inspection.ts`: reglas para corregir revisiones e inventario.
+- `lib/reports.ts`: PDF, texto y ZIP.
+- `public/sw.js`, `lib/offline.ts`: apertura sin conexión.
 
-- Comprobada en navegador automatizado. Falta verificar cámara y almacenamiento en Android/iPhone físicos.
-- Subida en primer plano; puede pausarse al cerrar la app y reanudarse al abrirla.
-- Hasta 2 GB por archivo, sujeto al espacio disponible. ZIP de hasta 300 MB por exportación.
-- La preparación offline descarga fotos de recepción. Los videos de otros teléfonos necesitan señal; los grabados en el propio teléfono quedan locales.
-- HEIC/HEVC depende del navegador; el original se conserva aunque no se pueda previsualizar.
-- Los informes son borradores hasta su revisión y firma.
-- No limpiar los datos del navegador mientras haya pendientes de respaldo.
-
-[Pruebas realizadas](docs/PRUEBAS.md).
+[Pruebas y límites verificados](docs/PRUEBAS.md). La cámara y la instalación deben comprobarse también en Android/iPhone físicos.

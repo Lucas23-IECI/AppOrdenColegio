@@ -1,3 +1,4 @@
+import {remoteFile} from './http';
 import {fileBlob} from './local-store';
 import type {Media} from './model';
 export async function thumbnailFor(file:File):Promise<{thumbnail?:Blob,duration?:number}>{
@@ -7,5 +8,5 @@ export async function thumbnailFor(file:File):Promise<{thumbnail?:Blob,duration?
   if(file.type.startsWith('video/')){const video=document.createElement('video');video.muted=true;video.playsInline=true;video.preload='metadata';video.onloadedmetadata=()=>{video.currentTime=Math.min(.15,video.duration/2||0);};video.onseeked=()=>{draw(video,video.videoWidth,video.videoHeight,Number.isFinite(video.duration)?video.duration:undefined);video.removeAttribute('src');video.load();};video.onerror=()=>end({});video.src=url;}else{const img=new Image();img.onload=()=>draw(img,img.naturalWidth,img.naturalHeight);img.onerror=()=>end({});img.src=url;}
  });}finally{URL.revokeObjectURL(url);}
 }
-export async function mediaUrl(m:Media,thumbnail=false){const local=await fileBlob(m.id+(thumbnail?':thumbnail':''));if(local)return {url:URL.createObjectURL(local),local:true};if(m.status==='ready'&&(!thumbnail||m.thumbnailReady))return {url:'/api/media/'+m.id+(thumbnail?'/thumbnail':''),local:false};return {url:'',local:false};}
+export async function mediaUrl(m:Media,thumbnail=false){const local=await fileBlob(m.id+(thumbnail?':thumbnail':''))??(thumbnail&&m.mime.startsWith('image/')?await fileBlob(m.id):undefined);if(local)return {url:URL.createObjectURL(local),local:true};if(m.status==='ready'&&(!thumbnail||m.thumbnailReady))return {url:await remoteFile(m.id,thumbnail),local:false};return {url:'',local:false};}
 export function downloadBlob(blob:Blob,name:string){const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);}

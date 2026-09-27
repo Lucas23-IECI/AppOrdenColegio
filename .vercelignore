@@ -1,0 +1,15 @@
+.git
+.env*
+!.env.example
+node_modules
+work
+data
+.tools
+.wrangler
+.sites-runtime
+.agents
+.codex
+supabase/.temp
+supabase/.branches
+dist
+*.tsbuildinfo

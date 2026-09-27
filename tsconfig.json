@@ -34,7 +34,9 @@
     "hooks/**/*.ts",
     "lib/**/*.ts",
     "server/**/*.ts",
-    "vite.config.ts"
+    "vite.config.ts",
+    "api/**/*.ts",
+    "tests/**/*.ts"
   ],
   "exclude": [
     "node_modules",
