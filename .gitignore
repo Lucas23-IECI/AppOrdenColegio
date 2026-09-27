@@ -50,6 +50,3 @@ next-env.d.ts
 # Private event database, originals and installation keys
 /data/
 /.tools/
-
-.vercel
-.env*
