@@ -1,8 +1,0 @@
-import { sqliteTable, text, integer, index, uniqueIndex } from 'drizzle-orm/sqlite-core';
-export const settings=sqliteTable('settings',{key:text('key').primaryKey(),value:text('value').notNull()});
-export const members=sqliteTable('members',{id:text('id').primaryKey(),email:text('email').notNull(),name:text('name').notNull(),role:text('role').notNull()},t=>[uniqueIndex('members_email').on(t.email)]);
-export const rooms=sqliteTable('rooms',{id:text('id').primaryKey(),data:text('data').notNull(),revision:integer('revision').notNull(),mutationId:text('mutation_id').notNull(),updatedAt:text('updated_at').notNull()});
-export const history=sqliteTable('history',{id:text('id').primaryKey(),roomId:text('room_id').notNull(),revision:integer('revision').notNull(),data:text('data').notNull(),author:text('author').notNull(),createdAt:text('created_at').notNull()},t=>[index('history_room').on(t.roomId,t.revision)]);
-export const media=sqliteTable('media',{id:text('id').primaryKey(),roomId:text('room_id').notNull(),phase:text('phase').notNull(),data:text('data').notNull(),status:text('status').notNull(),uploadId:text('upload_id'),ownerId:text('owner_id').notNull(),createdAt:text('created_at').notNull()},t=>[index('media_room').on(t.roomId,t.phase)]);
-export const parts=sqliteTable('upload_parts',{id:text('id').primaryKey(),mediaId:text('media_id').notNull(),partNumber:integer('part_number').notNull(),etag:text('etag').notNull()},t=>[uniqueIndex('parts_media_number').on(t.mediaId,t.partNumber)]);
-export const reports=sqliteTable('reports',{id:text('id').primaryKey(),data:text('data').notNull(),createdAt:text('created_at').notNull(),author:text('author').notNull()});

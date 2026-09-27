@@ -6,9 +6,9 @@ type Row={id:string,room_id:string,phase:string,data:string,status:string,upload
 async function asset(id:string){const row=await db().prepare('SELECT * FROM media WHERE id=?').bind(id).first<Row>();if(!row)throw new ApiError('Archivo no encontrado.',404);return row;}
 const key=(id:string)=>'originals/'+id;
 export async function GET(request:Request){try{
- const user=await identity();const url=new URL(request.url);const p=url.pathname.slice(5).split('/');
+ const user=await identity(request);const url=new URL(request.url);const p=url.pathname.slice(5).split('/');
  if(p[0]==='bootstrap'){
-  const [rr,mm,team,info]=await Promise.all([db().prepare('SELECT data FROM rooms ORDER BY updated_at').all<{data:string}>(),db().prepare("SELECT data,status FROM media WHERE status='ready' ORDER BY created_at").all<{data:string,status:string}>(),db().prepare('SELECT id,name,email,role FROM members').all(),eventInfo()]);
+  const [rr,mm,team,info]=await Promise.all([db().prepare('SELECT data FROM rooms ORDER BY updated_at').all<{data:string}>(),db().prepare("SELECT data,status FROM media WHERE status='ready' ORDER BY created_at").all<{data:string,status:string}>(),db().prepare('SELECT m.id,m.name,m.email,m.role FROM members m JOIN credentials c ON c.user_id=m.id WHERE c.disabled=0').all(),eventInfo()]);
   return Response.json({user,rooms:rr.results.map(r=>JSON.parse(r.data)),media:mm.results.map(r=>({...JSON.parse(r.data),status:r.status})),team:team.results,event:info},{headers:{'Cache-Control':'no-store'}});
  }
  if(p[0]==='history'&&p[1]){const rows=await db().prepare('SELECT revision,data,author,created_at FROM history WHERE room_id=? ORDER BY revision DESC LIMIT 60').bind(p[1]).all();return Response.json({history:rows.results});}
@@ -28,7 +28,7 @@ export async function GET(request:Request){try{
  throw new ApiError('Ruta no encontrada.',404);
  }catch(e){return responseError(e);}}
 export async function POST(request:Request){try{
- sameOrigin(request);const user=await identity();const p=new URL(request.url).pathname.slice(5).split('/');
+ sameOrigin(request);const user=await identity(request);const p=new URL(request.url).pathname.slice(5).split('/');
  if(p[0]==='rooms'){
   const raw=await request.json();const input=roomSchema.parse(raw);const existing=await getRoom(input.id);
   if(existing?.mutation_id===input.mutationId)return Response.json({room:existing.room});
@@ -43,7 +43,6 @@ export async function POST(request:Request){try{
   return Response.json({room:updated});
  }
  if(p[0]==='event'){coordinator(user);const data=z.object({name:z.string().min(1).max(150),institution:z.string().max(150),location:z.string().max(100),coordinator:z.string().max(100)}).parse(await request.json());await db().prepare('INSERT INTO settings (key,value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value').bind('event',JSON.stringify(data)).run();return Response.json({event:data});}
- if(p[0]==='team'){coordinator(user);const data=z.object({email:z.string().email(),name:z.string().min(1).max(100),role:z.enum(['recorder','coordinator'])}).parse(await request.json());await db().prepare('INSERT INTO members (id,email,name,role) VALUES (?,?,?,?) ON CONFLICT(email) DO UPDATE SET name=excluded.name,role=excluded.role').bind(crypto.randomUUID(),data.email.toLowerCase(),data.name,data.role).run();return Response.json({ok:true});}
  if(p[0]==='uploads'&&p[1]==='init'){
   const data=z.object({id:z.string().uuid(),roomId:z.string().uuid(),phase:z.enum(['reception','return']),name:z.string().min(1).max(300),mime:z.string().regex(MEDIA_TYPE),size:z.number().int().positive().max(2*1024**3),createdAt:z.string().datetime(),note:z.string().max(2000),category:z.string().max(60),duration:z.number().optional()}).parse(await request.json());
   if(!await getRoom(data.roomId))throw new ApiError('Primero respalda el espacio al que pertenece este archivo.',409);

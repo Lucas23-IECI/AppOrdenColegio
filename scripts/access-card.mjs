@@ -1,0 +1,10 @@
+import fs from 'node:fs';
+import QRCode from 'qrcode';
+const url=new URL(process.argv[2]);
+if(url.protocol!=='https:'&&!['localhost','127.0.0.1'].includes(url.hostname))throw Error('Se necesita HTTPS.');
+const setup=fs.existsSync('data/setup-key.txt')?fs.readFileSync('data/setup-key.txt','utf8').trim():'';
+if(setup)url.hash='setup='+setup;
+const png=await QRCode.toBuffer(url.href,{width:320,margin:3});
+fs.writeFileSync('data/acceso-celular.png',png);
+fs.writeFileSync('data/primer-acceso.html',`<!doctype html><html lang="es"><meta charset="utf-8"><title>Acceso a Orden Colegio</title><style>body{font:18px system-ui;max-width:620px;margin:48px auto;padding:24px;color:#152340}a{color:#173ee8}img{max-width:100%}</style><h1>Orden Colegio</h1><p>${setup?'Crea tu usuario y contraseña de coordinador.':'Entra con tu usuario y contraseña.'}</p><p><a href="${url.href}">Abrir la aplicación</a></p><img src="acceso-celular.png" alt="QR de acceso para el celular"><p>Escanea con la cámara del celular. Mantén encendido este computador durante la prueba.</p><p>La dirección de prueba puede cambiar al reiniciar. Los registros y archivos permanecen en este computador.</p></html>`);
+console.log('Acceso y QR guardados en data/primer-acceso.html y data/acceso-celular.png.');

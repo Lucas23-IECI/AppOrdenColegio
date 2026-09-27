@@ -25,7 +25,7 @@ async function performSync(notify:()=>void,status:(value:string)=>void){
 async function uploadMedia(item:Media,notify:()=>void,status:(s:string)=>void){
  const blob=await fileBlob(item.id);if(!blob)throw new Error('Este teléfono no tiene el original. Revisa el teléfono que lo registró.');
  const init=await api<{ready?:boolean,parts?:{partNumber:number,etag:string}[],partSize:number}>('uploads/init',{id:item.id,roomId:item.roomId,phase:item.phase,name:item.name,mime:item.mime,size:item.size,createdAt:item.createdAt,note:item.note,category:item.category,duration:item.duration});
- if(!init.ready){const parts=init.parts??[];const total=Math.ceil(blob.size/init.partSize);item.status='uploading';item.error=undefined;await putMedia(item);notify();
+ if(!init.ready){const parts=init.parts??[];const total=Math.ceil(blob.size/init.partSize);item.status='uploading';item.error=undefined;await patchMedia(item.id,{status:'uploading',error:undefined});notify();
   for(let n=1;n<=total;n++){if(parts.some(p=>p.partNumber===n))continue;status('Subiendo '+item.name+' · '+Math.round((n-1)/total*100)+'%');const chunk=blob.slice((n-1)*init.partSize,n*init.partSize);const res=await fetch('/api/uploads/'+item.id+'/part?number='+n,{method:'POST',body:chunk,headers:{'Content-Type':'application/octet-stream'}});if(!res.ok){const err=await res.json().catch(()=>({error:'Carga interrumpida.'})) as {error:string};throw new HttpError(err.error,res.status);}const part=await res.json() as {partNumber:number,etag:string};parts.push(part);item.parts=parts;item.progress=Math.round(n/total*100);await patchMedia(item.id,{parts,progress:item.progress,status:'uploading'});notify();}
   await api('uploads/'+item.id+'/complete',{});
  }
