@@ -4,6 +4,12 @@ Pruebas del 27 de septiembre de 2026 en Windows, Node 24 y Edge/Chromium. Fixtur
 
 ## Automatizadas
 
+Accesos visibles a edición de fotos (28 de septiembre):
+
+- Botones Editar y Quitar bajo cada miniatura, de al menos 56 px. Acciones principales del visor visibles al abrir a 320, 390, 768 y 1440 px.
+- Editar abre el recorte directamente y conserva esa pantalla al recargar; Atrás vuelve al espacio. Cancelar Quitar conserva la foto.
+- Encargados pueden gestionar archivos propios; coordinación puede gestionar los del equipo. El visor explica el permiso cuando el archivo es de otro encargado.
+
 Actualización de inventario, evidencias y auditoría:
 
 - Inventario: agregar, renombrar conservando cantidades, copiar elementos y nombres de otro espacio sin copiar cantidades, quitar y volver a confirmar las revisiones afectadas.
