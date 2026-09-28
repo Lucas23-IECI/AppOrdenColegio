@@ -6,7 +6,7 @@ Aplicación para recibir y devolver salas y otros espacios del evento en Hualqui
 
 ## Uso
 
-El primer coordinador recibe un enlace personal `/#setup=CLAVE` para crear su cuenta. Ese enlace solo permite la instalación mientras no exista coordinador. Después se ingresa con correo y contraseña.
+Cada encargado puede abrir la aplicación y pulsar **Crear cuenta** con nombre, correo y contraseña. No necesita clave de instalación ni invitación. Las cuentas nuevas comparten el evento y entran como encargados; la primera cuenta de una instalación vacía es administradora. Las cuentas existentes conservan su acceso.
 
 1. Crear 18 salas con un botón, o añadir espacios individualmente. Editar nombre, tipo, recinto, sector y encargado; archivar y restaurar sin borrar registros.
 2. Abrir un espacio y registrar **Recepción**: cantidades, revisión del estado, fotos, videos y observaciones. Confirmar cuando esté completo.
@@ -15,7 +15,15 @@ El primer coordinador recibe un enlace personal `/#setup=CLAVE` para crear su cu
 5. Al devolver, completar **Devolución**, comparar con la recepción y revisar las diferencias de inventario.
 6. Generar PDF con fotografías, texto o ZIP con originales desde **Informes**. Las versiones archivadas del texto quedan disponibles para el equipo.
 
-En **Ajustes → Equipo**, el coordinador genera invitaciones personales de un uso, válidas durante 48 horas. Los encargados pueden registrar espacios; solo el coordinador administra accesos, datos del evento y archivo/restauración de espacios. La aplicación no envía invitaciones automáticamente.
+En **Ajustes → Administración del equipo**, un administrador puede buscar cuentas, cambiar su rol y desactivar o reactivar accesos. La cuenta que antes era coordinadora se conserva como administradora. No se puede quitar ni desactivar al último administrador activo. La desactivación bloquea el servidor y conserva los registros; no borra las copias que ya estaban guardadas en un teléfono.
+
+| Rol | Permisos |
+| --- | --- |
+| Administrador | Gestionar equipo y permisos, datos del evento, espacios y evidencias. |
+| Coordinador | Gestionar datos del evento, archivar/restaurar espacios y editar notas de evidencias del equipo. |
+| Encargado | Crear y registrar espacios, subir fotos/videos, editar notas propias y generar informes. |
+
+En **Ajustes → Equipo** está el enlace para compartir el registro. La aplicación no envía invitaciones ni correos de confirmación. El correo sirve para iniciar sesión; no se verifica su propiedad durante el registro.
 
 Temas Bosque, Azul, Naranjo y Noche, todos con colores planos. El tema se conserva por dispositivo.
 
@@ -60,9 +68,9 @@ La instalación de este repositorio usa el proyecto Vercel `app-orden-colegio` y
 Para reproducir el despliegue en otra instalación:
 
 1. Crear el proyecto Supabase y aplicar las migraciones de `supabase/migrations` mediante `supabase link --project-ref REF` y `supabase db push`.
-2. Configurar en Vercel las seis variables de `.env.example`. `INITIAL_SETUP_KEY` debe ser aleatoria y privada. `SUPABASE_SECRET_KEY` solo se usa en el servidor. Las dos variables `VITE_` y la clave publicable son configuración pública, protegida por las reglas de acceso.
+2. Configurar en Vercel las variables de `.env.example`. `SUPABASE_SECRET_KEY` solo se usa en el servidor. Las dos variables `VITE_` y la clave publicable son configuración pública, protegida por las reglas de acceso. `INITIAL_SETUP_KEY` es opcional y solo conserva compatibilidad con el antiguo endpoint de instalación.
 3. Desplegar con `vercel --prod`. `vercel.json` configura Vite, la API y el enrutamiento de la PWA. Puede vincularse el repositorio con Vercel para despliegues al publicar cambios.
-4. Crear el coordinador mediante el enlace de instalación. Conservar la clave fuera del repositorio; no compartirla como enlace de ingreso del equipo.
+4. Crear la primera cuenta desde el formulario público; recibirá el rol de administrador. Compartir el enlace normal de la aplicación con el equipo.
 
 Auth verifica los tokens; la API comprueba que el miembro siga activo. Las tablas tienen RLS y solo son accesibles desde el servidor. Storage permite a cada miembro activo subir únicamente la ruta de un archivo previamente registrado a su nombre. El bucket `evidence` es privado; las descargas utilizan enlaces firmados de 15 minutos. Las revisiones se guardan mediante una transacción con control de versión e idempotencia.
 
@@ -71,7 +79,8 @@ Revisar consumo y cuotas en Supabase/Vercel según el volumen real. Respaldar la
 ## Código
 
 - `app/colegio-app.tsx` y `app/globals.css`: interfaz y temas.
-- `app/auth-panel.tsx`: acceso y equipo.
+- `app/auth-panel.tsx`, `app/admin-panel.tsx`: registro, ingreso y administración del equipo.
+- `app/space-overview.tsx`: avance de recepción/devolución, filtros y evidencia por espacio.
 - `api/index.ts` y `server/cloud.ts`: API desplegada en Vercel.
 - `supabase/migrations`: tablas, transacciones y permisos.
 - `lib/local-store.ts`, `lib/sync.ts`: guardado local y sincronización.

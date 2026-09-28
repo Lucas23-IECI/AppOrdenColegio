@@ -4,6 +4,16 @@ Pruebas del 27 de septiembre de 2026 en Windows, Node 24 y Edge/Chromium. Fixtur
 
 ## Automatizadas
 
+Actualización de registro abierto y administración:
+
+- Registro sin códigos, validación de datos, correo normalizado, duplicados e inicio de sesión posterior.
+- Dos altas concurrentes respetan los roles existentes; el cuerpo de la petición no puede otorgar permisos.
+- Administrador, coordinador y encargado: cambio de roles, bloqueo de autoascenso y comprobación de permisos con el token ya emitido.
+- Listado administrativo incluye cuentas desactivadas. Desactivar y reactivar modifica el acceso real a API/Storage; no elimina los registros.
+- La función SQL serializa altas y cambios de permisos con el mismo bloqueo; rechaza quitar al último administrador activo. Esta condición se revisó en el código, sin desactivar al administrador real para probarla.
+- Brave con perfil aislado: registro desde el formulario, ingreso posterior, ojito, cambio de roles, desactivación/reactivación, cuatro temas y vistas de 390/1440 px, sin errores JavaScript ni desbordamiento horizontal.
+- Las cuentas de estas pruebas se eliminan por sus identificadores exactos. Los espacios y archivos existentes no se modifican.
+
 `npm run typecheck` y `npm test`:
 
 - Corregir recepción invalida la confirmación posterior conservando notas y cantidades.
@@ -46,8 +56,8 @@ Límite actual de Storage: 50 MB por archivo. Las subidas necesitan la aplicaci�
 
 Se diagnosticaron dos cierres del proceso principal de Brave 1.96.59 al escribir el correo. Ambos registraron `autofill-suggestions-shown-on-typing: 1,10,46,63`. En Chromium 154, ese registro corresponde a una comprobación que rechaza mezclar sugerencias de direcciones normales con sugerencias al escribir. Referencia: [BrowserAutofillManager](https://chromium.googlesource.com/chromium/src/+/refs/tags/154.0.8037.58/components/autofill/core/browser/foundations/browser_autofill_manager.cc).
 
-El formulario desactiva el autocompletado de nombre, código y correo para evitar la ruta de sugerencias al escribir, que está condicionada a `should_autocomplete()`. La contraseña mantiene su semántica de contraseña; el código de instalación se identifica como código y tiene un campo separado. No se cambian las preferencias ni los datos del navegador del usuario.
+El formulario desactiva el autocompletado de nombre y correo para evitar la ruta de sugerencias al escribir, que está condicionada a `should_autocomplete()`. La contraseña mantiene su semántica de contraseña. El formulario actual ya no solicita códigos de instalación ni invitación. No se cambian las preferencias ni los datos del navegador del usuario.
 
-El enlace de instalación/invitación se conserva en sessionStorage de la pestaña hasta ingresar, para que no desaparezca al recargar. Una prueba automatizada comprueba conservación, sustitución por una invitación, limpieza y almacenamiento bloqueado.
+En la versión anterior, el enlace de instalación/invitación se conservaba en sessionStorage hasta ingresar. La utilidad y su prueba se conservan por compatibilidad; el formulario actual elimina cualquier enlace antiguo almacenado y permite crear cuenta directamente.
 
 La corrección publicada se comprobó en Brave 1.96.59 con un perfil aislado y una dirección ficticia guardada: 12 correos escritos tecla por tecla, recarga con conservación del enlace, envío interceptado sin crear usuarios y manejo de un enlace de instalación antiguo. No hubo cierres, errores JavaScript ni desbordamiento a 390 px. Esta prueba no reproduce las extensiones ni la configuración completa del perfil personal del usuario; queda pendiente su confirmación allí.

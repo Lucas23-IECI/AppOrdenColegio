@@ -11,24 +11,36 @@ function check(result:{error:unknown}){if(result.error){console.error('Supabase 
 const hash=(s:string)=>createHash('sha256').update(s).digest('hex');
 const maxFileBytes=50*1024*1024;
 async function identity(request:Request):Promise<User>{const token=request.headers.get('authorization')?.replace(/^Bearer /i,'');if(!token)throw new ApiError('Ingresa para abrir el registro.',401);const auth=await admin().auth.getUser(token);if(auth.error||!auth.data.user)throw new ApiError('Tu sesión venció. Vuelve a ingresar.',401);const member=await admin().from('oc_members').select('id,email,name,role').eq('id',auth.data.user.id).eq('disabled',false).maybeSingle();check(member);if(!member.data)throw new ApiError('Tu usuario no tiene acceso a este evento.',403);return member.data as User;}
-function coordinator(user:User){if(user.role!=='coordinator')throw new ApiError('Esta acción corresponde al coordinador.',403);}
+function coordinator(user:User){if(user.role!=='coordinator'&&user.role!=='admin')throw new ApiError('Esta acción corresponde al coordinador o administrador.',403);}
+function administrator(user:User){if(user.role!=='admin')throw new ApiError('Solo un administrador puede gestionar el equipo.',403);}
 async function asset(id:string){const r=await admin().from('oc_media').select('*').eq('id',id).maybeSingle();check(r);if(!r.data)throw new ApiError('Archivo no encontrado.',404);return r.data;}
 async function rows(table:string,selection='*'){const list:Record<string,any>[]=[];for(let offset=0;;offset+=1000){const result=await admin().from(table).select(selection).range(offset,offset+999);check(result);list.push(...result.data??[]);if(!result.data||result.data.length<1000)return list;}}
 const account=z.object({name:z.string().trim().min(2).max(100),email:z.string().trim().email().toLowerCase(),password:z.string().min(12).max(200)});
-async function authRoute(request:Request,path:string[]){const action=path[1];if(action==='status'&&request.method==='GET'){const result=await admin().from('oc_members').select('id',{count:'exact',head:true}).eq('role','coordinator');check(result);return {needsSetup:!result.count};}
+async function authRoute(request:Request,path:string[]){const action=path[1];if(action==='status'&&request.method==='GET'){const result=await admin().from('oc_members').select('id',{count:'exact',head:true}).in('role',['admin','coordinator']);check(result);return {needsSetup:!result.count};}
+ if(action==='team'&&request.method==='GET'){const user=await identity(request);administrator(user);return {team:await rows('oc_members','id,email,name,role,disabled')};}
  if(request.method!=='POST')throw new ApiError('Método no permitido.',405);const body=await request.json();
- if(action==='setup'||action==='join'){
+ if(action==='register'||action==='setup'||action==='join'){
   const input=account.extend({setupKey:z.string().optional(),code:z.string().optional()}).parse(body);
-  if(action==='setup'){const expected=process.env.INITIAL_SETUP_KEY;if(!expected||!timingSafeEqual(Buffer.from(hash(input.setupKey??'')),Buffer.from(hash(expected))))throw new ApiError('El enlace de instalación no es correcto.',403);const count=await admin().from('oc_members').select('id',{count:'exact',head:true}).eq('role','coordinator');check(count);if(count.count)throw new ApiError('El coordinador ya está creado. Ingresa con tu correo.',409);}
-  else{const invite=await admin().from('oc_invites').select('code_hash').eq('code_hash',hash(input.code??'')).is('used_at',null).gt('expires_at',new Date().toISOString()).maybeSingle();check(invite);if(!invite.data)throw new ApiError('La invitación venció o ya fue utilizada.',403);}
-  const created=await admin().auth.admin.createUser({email:input.email,password:input.password,email_confirm:true,user_metadata:{name:input.name}});if(created.error||!created.data.user)throw new ApiError('No se pudo crear el acceso. Ese correo puede estar registrado.',409);
-  const member=await admin().rpc('oc_register_member',{p_user:created.data.user.id,p_email:input.email,p_name:input.name,p_invite_hash:action==='join'?hash(input.code??''):null,p_owner:action==='setup'});
-  if(member.error){await admin().auth.admin.deleteUser(created.data.user.id);throw new ApiError('No se pudo utilizar ese acceso: ya fue usado o expiró.',409);}
+  if(action==='setup'){const expected=process.env.INITIAL_SETUP_KEY;if(!expected||!timingSafeEqual(Buffer.from(hash(input.setupKey??'')),Buffer.from(hash(expected))))throw new ApiError('El enlace de instalación no es correcto.',403);const count=await admin().from('oc_members').select('id',{count:'exact',head:true}).in('role',['admin','coordinator']);check(count);if(count.count)throw new ApiError('El administrador ya está creado. Ingresa con tu correo.',409);}
+  else if(action==='join'){const invite=await admin().from('oc_invites').select('code_hash').eq('code_hash',hash(input.code??'')).is('used_at',null).gt('expires_at',new Date().toISOString()).maybeSingle();check(invite);if(!invite.data)throw new ApiError('La invitación venció o ya fue utilizada.',403);}
+  const created=await admin().auth.admin.createUser({email:input.email,password:input.password,email_confirm:true,user_metadata:{name:input.name}});
+  if(created.error||!created.data.user){if(created.error?.code==='email_exists'||created.error?.code==='user_already_exists')throw new ApiError('Ese correo ya tiene una cuenta. Ingresa con tu contraseña.',409);throw new ApiError('No se pudo crear tu cuenta. Inténtalo de nuevo.',503);}
+  const member=action==='register'
+   ?await admin().rpc('oc_register_open_member',{p_user:created.data.user.id,p_email:input.email,p_name:input.name})
+   :await admin().rpc('oc_register_member',{p_user:created.data.user.id,p_email:input.email,p_name:input.name,p_invite_hash:action==='join'?hash(input.code??''):null,p_owner:action==='setup'});
+  if(member.error){const cleanup=await admin().auth.admin.deleteUser(created.data.user.id);if(cleanup.error)console.error('Could not remove incomplete registration',cleanup.error.code);if(action==='register')throw new ApiError('No se pudo terminar de crear tu cuenta. Inténtalo de nuevo.',503);throw new ApiError('No se pudo utilizar ese acceso: ya fue usado o expiró.',409);}
   const signed=await publicAuth().auth.signInWithPassword({email:input.email,password:input.password});if(signed.error)throw new ApiError('El usuario se creó. Ingresa con tu correo y contraseña.',401);return {session:signed.data.session};
  }
  const user=await identity(request);coordinator(user);
  if(action==='invites'){const {name}=z.object({name:z.string().trim().min(2).max(100)}).parse(body);const code=randomBytes(24).toString('base64url');const expiresAt=new Date(Date.now()+48*3600000).toISOString();check(await admin().from('oc_invites').insert({code_hash:hash(code),name,expires_at:expiresAt}));return {code,expiresAt,name};}
- if(action==='revoke'){const {userId}=z.object({userId:z.string().uuid()}).parse(body);if(userId===user.id)throw new ApiError('No puedes quitar tu propio acceso.');check(await admin().from('oc_members').update({disabled:true}).eq('id',userId));return {ok:true};}
+ if(action==='member'||action==='revoke'){
+  administrator(user);
+  const input=z.object({userId:z.string().uuid(),role:z.enum(['admin','coordinator','recorder']).optional(),disabled:z.boolean().optional()}).parse(body);
+  if(action==='member'&&input.role===undefined&&input.disabled===undefined)throw new ApiError('Elige el cambio de permisos.');
+  const result=await admin().rpc('oc_manage_member',{p_actor:user.id,p_target:input.userId,p_role:action==='member'?input.role??null:null,p_disabled:action==='revoke'?true:input.disabled??null});
+  if(result.error){const known=['Debe quedar al menos un administrador activo','No se encontró la cuenta','Solo un administrador puede gestionar el equipo'];throw new ApiError(known.includes(result.error.message)?result.error.message:'No se pudieron cambiar los permisos.',result.error.code==='42501'?403:409);}
+  return {ok:true};
+ }
  throw new ApiError('Acción no encontrada.',404);
 }
 async function dispatch(request:Request){const url=new URL(request.url);const route=url.searchParams.get('route')??url.pathname.replace(/^\/api\/?/,'');const path=route.split('/').filter(Boolean);
@@ -68,7 +80,7 @@ async function dispatch(request:Request){const url=new URL(request.url);const ro
   const input=z.object({base64:z.string().max(1400000)}).parse(body);const bytes=Buffer.from(input.base64,'base64');if(bytes.length>1024*1024||bytes[0]!==255||bytes[1]!==216)throw new ApiError('Miniatura inválida.');
   const r=await admin().storage.from('evidence').upload('thumbnails/'+file.id+'.jpg',bytes,{contentType:'image/jpeg',upsert:true});check(r);check(await admin().from('oc_media').update({data:{...file.data,thumbnailReady:true}}).eq('id',file.id));return {ok:true};
  }
- if(path[0]==='media'&&path[2]==='metadata'){const file=await asset(path[1]);if(file.owner_id!==user.id&&user.role!=='coordinator')throw new ApiError('Solo el autor o coordinador puede editar.',403);const data=z.object({note:z.string().max(2000),category:z.string().max(60)}).parse(body);check(await admin().from('oc_media').update({data:{...file.data,...data}}).eq('id',file.id));return {ok:true};}
+ if(path[0]==='media'&&path[2]==='metadata'){const file=await asset(path[1]);if(file.owner_id!==user.id&&user.role==='recorder')throw new ApiError('Solo el autor, coordinador o administrador puede editar.',403);const data=z.object({note:z.string().max(2000),category:z.string().max(60)}).parse(body);check(await admin().from('oc_media').update({data:{...file.data,...data}}).eq('id',file.id));return {ok:true};}
  if(path[0]==='reports'){const data=z.object({title:z.string().max(200),text:z.string().max(300000),roomIds:z.array(z.string().uuid()).max(1000),kind:z.string().max(30)}).parse(body);const result=await admin().from('oc_reports').insert({data,author:user.name}).select('id').single();check(result);return result.data;}
  throw new ApiError('Acción no encontrada.',404);
 }

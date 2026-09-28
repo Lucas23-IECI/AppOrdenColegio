@@ -1,29 +1,85 @@
-import {useEffect,useState} from 'react';
-import {ArrowRight,Copy,UserPlus,LogOut,Eye,EyeOff} from 'lucide-react';
+import {useEffect, useState} from 'react';
+import {ArrowRight, Copy, LogOut, Eye, EyeOff, Loader2, Users} from 'lucide-react';
 import {api} from '../lib/sync';
-import type {User} from '../lib/model';
-import {readEntryLink,clearEntryLink} from '../lib/auth-entry';
-export function AuthPanel(){
- const [entry]=useState(readEntryLink);
- const [mode,setMode]=useState<'login'|'setup'|'join'>(entry.inviteCode?'join':entry.setupKey?'setup':'login');
- const [key,setKey]=useState(entry.setupKey||entry.inviteCode);
- const [showPassword,setShowPassword]=useState(false);
- useEffect(()=>setShowPassword(false),[mode]);
- const [name,setName]=useState('');const [email,setEmail]=useState('');const [password,setPassword]=useState('');const [error,setError]=useState('');const [busy,setBusy]=useState(false);
- useEffect(()=>{void api<{needsSetup:boolean}>('auth/status').then(s=>{if(s.needsSetup)setMode('setup');else if(entry.setupKey){clearEntryLink();setMode('login');setKey('');}}).catch(e=>setError(e.message));if(location.hash)history.replaceState(null,'',location.pathname);},[entry]);
- return <section className="panel auth-panel"><p className="eyebrow">{mode==='setup'?'PRIMER INGRESO':mode==='join'?'ACCESO DEL EQUIPO':'TU REGISTRO'}</p><h2>{mode==='setup'?'Crea tu acceso de coordinador':mode==='join'?'Únete al equipo':'Entrar a Orden Colegio'}</h2><p className="subtle">{mode==='setup'?'Elige el correo y la contraseña que usarás en tus dispositivos.':mode==='join'?'Tu acceso es personal. Los registros del evento se comparten con el equipo.':'Usa tu correo y contraseña del evento.'}</p><form id="event-access" autoComplete="off" onSubmit={async e=>{e.preventDefault();setBusy(true);setError('');try{await api('auth/'+mode,{name,email,password,...(mode==='setup'?{setupKey:key}:mode==='join'?{code:key}:{})});clearEntryLink();location.reload();}catch(e){setError((e as Error).message);}finally{setBusy(false);}}}>
- {mode!=='login'&&<label className="field"><span>Tu nombre</span><input id="access-name" name="display-name" required minLength={2} maxLength={100} autoComplete="off" value={name} onChange={e=>setName(e.target.value)}/></label>}
- {mode!=='login'&&<label className="field"><span>{mode==='setup'?'Clave de instalación':'Código de invitación'}</span><input id="access-code" name="access-code" required type="text" autoComplete="off" autoCapitalize="none" spellCheck={false} value={key} onChange={e=>setKey(e.target.value)}/></label>}
- <label className="field"><span>Correo electrónico</span><input id="access-email" name="account-email" required type="email" inputMode="email" maxLength={254} autoCapitalize="none" autoCorrect="off" spellCheck={false} autoComplete="off" placeholder="tu@correo.cl" value={email} onChange={e=>setEmail(e.target.value)}/></label>
- <div className="field"><label className="password-label" htmlFor="access-password">Contraseña{mode!=='login'?' · mínimo 12 caracteres':''}</label><div className="password-field"><input id="access-password" name="password" required type={showPassword?'text':'password'} minLength={mode==='login'?1:12} maxLength={200} autoCapitalize="none" autoCorrect="off" spellCheck={false} autoComplete={showPassword?'off':mode==='login'?'current-password':'new-password'} value={password} onChange={e=>setPassword(e.target.value)}/><button type="button" className="password-toggle" aria-label={showPassword?'Ocultar contraseña':'Mostrar contraseña'} aria-controls="access-password" title={showPassword?'Ocultar contraseña':'Mostrar contraseña'} onClick={()=>setShowPassword(visible=>!visible)}>{showPassword?<EyeOff size={20} aria-hidden="true"/>:<Eye size={20} aria-hidden="true"/>}</button></div></div>
- {error&&<p className="auth-error" role="alert">{error}</p>}<button className="button primary" disabled={busy}>{busy?'Entrando…':mode==='login'?'Entrar':'Crear mi acceso'}<ArrowRight size={17}/></button></form>
- {mode!=='setup'&&<button className="text-button spaced" onClick={()=>{setMode(mode==='login'?'join':'login');setError('');}}>{mode==='login'?'Tengo un código de invitación':'Ya tengo acceso'}</button>}
- </section>;
+import {ROLE_LABELS, type User} from '../lib/model';
+import {clearEntryLink} from '../lib/auth-entry';
+
+export function AuthPanel() {
+  const [mode, setMode] = useState<'login' | 'register'>(() => location.hash === '#login' ? 'login' : 'register');
+  const [showPassword, setShowPassword] = useState(false);
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const registering = mode === 'register';
+
+  useEffect(() => {
+    // Old setup/invite links now lead to the same open registration form.
+    clearEntryLink();
+    if (location.hash) history.replaceState(null, '', location.pathname + location.search);
+  }, []);
+  useEffect(() => setShowPassword(false), [mode]);
+
+  return <section className="panel auth-panel">
+    <div className="auth-tabs" role="group" aria-label="Acceso a la aplicación">
+      <button type="button" aria-pressed={registering} disabled={busy} onClick={() => {setMode('register'); setError('');}}>Crear cuenta</button>
+      <button type="button" aria-pressed={!registering} disabled={busy} onClick={() => {setMode('login'); setError('');}}>Ya tengo cuenta</button>
+    </div>
+    <div className="auth-heading">
+      <p className="eyebrow">{registering ? 'SUMA TU REGISTRO AL EQUIPO' : 'BIENVENIDO DE VUELTA'}</p>
+      <h2>{registering ? 'Tu cuenta, lista en un momento.' : 'Entra a tus espacios.'}</h2>
+      <p className="subtle">{registering ? 'Solo necesitas tu nombre, correo y una contraseña. Sin códigos ni invitaciones.' : 'Usa la misma cuenta en tu celular y computador.'}</p>
+    </div>
+    <form id="event-access" autoComplete="off" onSubmit={async e => {
+      e.preventDefault();
+      setBusy(true);
+      setError('');
+      try {
+        await api('auth/' + mode, {name, email: email.trim(), password});
+        location.reload();
+      } catch (e) {
+        setError((e as Error).message);
+      } finally {
+        setBusy(false);
+      }
+    }}>
+      {registering && <label className="field"><span>Tu nombre</span><input id="access-name" name="display-name" required minLength={2} maxLength={100} autoComplete="off" placeholder="Cómo te conoce el equipo" value={name} onChange={e => setName(e.target.value)}/></label>}
+      <label className="field"><span>Correo electrónico</span><input id="access-email" name="account-email" required type="email" inputMode="email" maxLength={254} autoCapitalize="none" autoCorrect="off" spellCheck={false} autoComplete="off" placeholder="tu@correo.cl" value={email} onChange={e => setEmail(e.target.value)}/></label>
+      <div className="field">
+        <label className="password-label" htmlFor="access-password">Contraseña</label>
+        <div className="password-field">
+          <input id="access-password" name="password" required type={showPassword ? 'text' : 'password'} minLength={registering ? 12 : 1} maxLength={200} autoCapitalize="none" autoCorrect="off" spellCheck={false} autoComplete={showPassword ? 'off' : registering ? 'new-password' : 'current-password'} aria-describedby={registering ? 'password-hint' : undefined} value={password} onChange={e => setPassword(e.target.value)}/>
+          <button type="button" className="password-toggle" aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'} aria-controls="access-password" title={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'} onClick={() => setShowPassword(visible => !visible)}>{showPassword ? <EyeOff size={20} aria-hidden="true"/> : <Eye size={20} aria-hidden="true"/>}</button>
+        </div>
+        {registering && <p className="fine-print" id="password-hint">Al menos 12 caracteres. Puedes usar una frase fácil de recordar.</p>}
+      </div>
+      {error && <p className="auth-error" role="alert">{error}</p>}
+      <button className="button primary" disabled={busy}>{busy ? <><Loader2 size={18} className="spin"/>{registering ? 'Creando tu cuenta…' : 'Entrando…'}</> : <>{registering ? 'Crear cuenta y entrar' : 'Entrar'}<ArrowRight size={18}/></>}</button>
+    </form>
+    <div className="auth-context"><Users size={18}/><p>Las cuentas de este evento trabajan en los mismos espacios. Cada registro conserva el nombre de quien lo hizo.</p></div>
+  </section>;
 }
-export function TeamAccess({user,team,pending,onChange}:{user:User,team:User[],pending:number,onChange:()=>Promise<void>}){
- const [name,setName]=useState('');const [link,setLink]=useState('');const [busy,setBusy]=useState(false);const [message,setMessage]=useState('');
- return <><p className="subtle">Conectado como {user.name}</p>{team.map(m=><div className="member-row" key={m.id}><span className="avatar">{m.name.slice(0,1).toUpperCase()}</span><div><strong>{m.name}</strong><p>{m.role==='coordinator'?'Coordinador':'Encargado'} · {m.email}</p></div>{user.role==='coordinator'&&m.id!==user.id&&<button className="text-button" onClick={async()=>{if(!window.confirm('¿Quitar el acceso de '+m.name+'? Sus registros se conservarán.'))return;try{await api('auth/revoke',{userId:m.id});await onChange();}catch(e){setMessage((e as Error).message);}}}>Quitar acceso</button>}</div>)}
- {user.role==='coordinator'&&<form className="spaced" onSubmit={async e=>{e.preventDefault();setBusy(true);setMessage('');try{const result=await api<{code:string}>('auth/invites',{name});setLink(location.origin+'/#invite='+result.code);setMessage('Válido por 48 horas y para una sola persona.');}catch(e){setMessage((e as Error).message);}finally{setBusy(false);}}}><label className="field"><span>Invitar a un encargado</span><input required minLength={2} maxLength={100} placeholder="Nombre del encargado" value={name} onChange={e=>setName(e.target.value)}/></label><button className="button secondary" disabled={busy}><UserPlus size={17}/>Crear enlace de acceso</button></form>}
- {link&&<div className="invite-result"><label className="field"><span>Enlace para compartir</span><input readOnly value={link} onFocus={e=>e.target.select()}/></label><button className="button secondary" onClick={async()=>{try{await navigator.clipboard.writeText(link);setMessage('Enlace copiado.');}catch{setMessage('Selecciona y copia el enlace.');}}}><Copy size={16}/>Copiar enlace</button></div>}{message&&<p role="status" className="fine-print">{message}</p>}
- <button className="text-button spaced" disabled={pending>0} onClick={async()=>{try{await api('auth/logout',{});localStorage.removeItem('orden-last-user');location.reload();}catch(e){setMessage((e as Error).message);}}}><LogOut size={16}/>Cerrar sesión</button>{pending>0&&<p className="fine-print">Respalda los pendientes antes de cerrar sesión.</p>}</>;
+
+export function TeamAccess({user, team, pending, onChange}: {user: User; team: User[]; pending: number; onChange: () => Promise<void>}) {
+  const [message, setMessage] = useState('');
+  const link = location.origin + '/#register';
+  return <>
+    <p className="subtle">Conectado como {user.name} · {ROLE_LABELS[user.role]}</p>
+    <div className="invite-result">
+      <label className="field"><span>Enlace para sumar al equipo</span><input readOnly value={link} onFocus={e => e.target.select()}/></label>
+      <p className="fine-print">Compártelo con los encargados. Cada uno puede crear su cuenta y empezar a registrar.</p>
+      <button className="button secondary" onClick={async () => {
+        try {await navigator.clipboard.writeText(link); setMessage('Enlace copiado.');}
+        catch {setMessage('Selecciona y copia el enlace.');}
+      }}><Copy size={16}/>Copiar enlace</button>
+    </div>
+    {user.role !== 'admin' && team.map(m => <div className="member-row" key={m.id}><span className="avatar">{m.name.slice(0, 1).toUpperCase()}</span><div><strong>{m.name}</strong><p>{ROLE_LABELS[m.role]} · {m.email}</p></div></div>)}
+    {message && <p role="status" className="fine-print">{message}</p>}
+    <button className="text-button spaced" disabled={pending > 0} onClick={async () => {
+      try {await api('auth/logout', {}); localStorage.removeItem('orden-last-user'); location.hash = 'login'; location.reload();}
+      catch (e) {setMessage((e as Error).message);}
+    }}><LogOut size={16}/>Cerrar sesión</button>
+    {pending > 0 && <p className="fine-print">Respalda los pendientes antes de cerrar sesión.</p>}
+  </>;
 }
