@@ -4,6 +4,15 @@ Pruebas del 27 de septiembre de 2026 en Windows, Node 24 y Edge/Chromium. Fixtur
 
 ## Automatizadas
 
+Actualización de lectura y navegación:
+
+- Rutas de espacios, recepción/devolución, archivos, informes, respaldo y ajustes; enlaces desconocidos normalizados sin conservar parámetros de acceso.
+- Atrás/Adelante del navegador y Atrás dentro de la app: visor de foto, editor, historial, cambio de fase e informe por espacio.
+- Volver conserva las cantidades guardadas y los filtros del recorrido; recargar conserva la pantalla actual.
+- Un enlace directo a un espacio crea una entrada del recorrido para poder volver dentro de la aplicación.
+- Prueba de interfaz con datos simulados: ocho temas, persistencia de Muy grande/Contraste y ausencia de desbordamiento horizontal en páginas móviles a 320 px y en revisión/edición a 320, 360, 390, 768 y 1440 px.
+- Controles principales de al menos 56 px y texto de al menos 18 px; botones de cámara apilados, filtros visibles y botón Atrás fijo al desplazarse por una pantalla interna.
+
 Actualización de registro abierto y administración:
 
 - Registro sin códigos, validación de datos, correo normalizado, duplicados e inicio de sesión posterior.

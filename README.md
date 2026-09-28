@@ -25,7 +25,9 @@ En **Ajustes → Administración del equipo**, un administrador puede buscar cue
 
 En **Ajustes → Equipo** está el enlace para compartir el registro. La aplicación no envía invitaciones ni correos de confirmación. El correo sirve para iniciar sesión; no se verifica su propiedad durante el registro.
 
-Temas Bosque, Azul, Naranjo y Noche, todos con colores planos. El tema se conserva por dispositivo.
+En **Ajustes → Cómo quieres ver la app** hay ocho temas planos: Bosque, Azul, Naranjo, Ciruela, Océano, Arena, Noche y Contraste. Texto Grande por defecto o Muy grande; ambas preferencias se conservan por dispositivo. Los botones principales miden al menos 56 px de alto, los controles de cámara están separados en celular y los filtros se muestran completos.
+
+El botón **Atrás** de la aplicación y el del navegador recorren las pantallas visitadas. Desde una foto, video, edición o historial, vuelven a la pantalla que lo abrió. También funcionan Adelante y recargar un espacio. Al agotar el historial interno, el navegador conserva su funcionamiento normal para salir del sitio.
 
 ## Archivos y trabajo sin señal
 
@@ -81,6 +83,8 @@ Revisar consumo y cuotas en Supabase/Vercel según el volumen real. Respaldar la
 - `app/colegio-app.tsx` y `app/globals.css`: interfaz y temas.
 - `app/auth-panel.tsx`, `app/admin-panel.tsx`: registro, ingreso y administración del equipo.
 - `app/space-overview.tsx`: avance de recepción/devolución, filtros y evidencia por espacio.
+- `app/appearance-panel.tsx`: colores y tamaño de lectura.
+- `hooks/use-app-navigation.ts`, `lib/navigation.ts`: historial, enlaces a pantallas y regreso desde visores/formularios.
 - `api/index.ts` y `server/cloud.ts`: API desplegada en Vercel.
 - `supabase/migrations`: tablas, transacciones y permisos.
 - `lib/local-store.ts`, `lib/sync.ts`: guardado local y sincronización.

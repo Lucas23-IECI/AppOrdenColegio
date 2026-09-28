@@ -17,7 +17,7 @@ export function AuthPanel() {
   useEffect(() => {
     // Old setup/invite links now lead to the same open registration form.
     clearEntryLink();
-    if (location.hash) history.replaceState(null, '', location.pathname + location.search);
+    if (location.hash && !location.hash.startsWith('#/')) history.replaceState(null, '', location.pathname + location.search);
   }, []);
   useEffect(() => setShowPassword(false), [mode]);
 
