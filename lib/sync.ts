@@ -1,3 +1,4 @@
+import {uploadThumbnail} from './media-tools';
 import {supabase} from './supabase';
 import {allRooms,allMedia,getRoomLocal,putRoom,putMedia,patchMedia,fileBlob,acceptSync,mergeServer,setMeta,type Bootstrap} from './local-store';
 import {plainRoom,type LocalRoom,type Media} from './model';
@@ -20,7 +21,9 @@ async function performSync(notify:()=>void,status:(value:string)=>void,onBootstr
   const parent=await getRoomLocal(item.roomId);if(!parent||parent.dirty||parent.conflict)continue;
   try{await uploadMedia(item,notify,status);}catch(e){await patchMedia(item.id,{status:'error',error:e instanceof Error?e.message:'Carga interrumpida'});notify();if(e instanceof HttpError&&(e.status===401||e.status===403))throw e;if(!navigator.onLine)break;}
  }
- for(const item of await allMedia()){if((item.status==='ready'||item.deleted)&&item.metaDirty){const sent=editableMediaFields(item);await api('media/'+item.id+'/metadata',sent);const latest=(await allMedia()).find(m=>m.id===item.id);if(latest&&JSON.stringify(editableMediaFields(latest))===JSON.stringify(sent))await patchMedia(item.id,{metaDirty:false});}}
+ const metadataFiles=await allMedia();
+ for(const item of metadataFiles){if((item.status==='ready'||item.deleted)&&item.metaDirty){if(item.comparisonId&&metadataFiles.find(m=>m.id===item.comparisonId)?.status!=='ready')continue;const sent=editableMediaFields(item);await api('media/'+item.id+'/metadata',sent);const latest=(await allMedia()).find(m=>m.id===item.id);if(latest&&JSON.stringify(editableMediaFields(latest))===JSON.stringify(sent))await patchMedia(item.id,{metaDirty:false});}}
+ for(const item of await allMedia()){if(item.status==='ready'&&!item.deleted&&item.thumbnailDirty){try{await uploadThumbnail(item);}catch{/* La vista previa local y el original se conservan para otro intento. */}}}
  const fresh=await api<Bootstrap>('bootstrap');await mergeServer(fresh.rooms,fresh.media);await setMeta('event',fresh.event);await setMeta('lastSync',new Date().toISOString());onBootstrap?.(fresh);notify();
  const pending=(await allRooms()).filter(r=>r.dirty).length+(await allMedia()).filter(mediaPending).length;status(pending?pending+' pendiente(s) de respaldo':'Respaldo al día');
 }
@@ -34,5 +37,5 @@ async function uploadMedia(item:Media,notify:()=>void,status:(s:string)=>void){
  }
  const thumbnail=await fileBlob(item.id+':thumbnail');let thumbnailReady=item.thumbnailReady;
  if(thumbnail&&!thumbnailReady){const data=await new Promise<string>((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(String(r.result).split(',')[1]);r.onerror=()=>reject(r.error);r.readAsDataURL(thumbnail);});try{await api('uploads/'+item.id+'/thumbnail',{base64:data});thumbnailReady=true;}catch{/* El original ya está respaldado; la miniatura se puede regenerar. */}}
- await patchMedia(item.id,{status:'ready',progress:100,parts:undefined,error:undefined,thumbnailReady});notify();
+ await patchMedia(item.id,{status:'ready',progress:100,parts:undefined,error:undefined,thumbnailReady,thumbnailDirty:!!thumbnail&&!thumbnailReady});notify();
 }

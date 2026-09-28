@@ -82,12 +82,12 @@ async function dispatch(request:Request){const url=new URL(request.url);const ro
   check(await admin().rpc('oc_finish_media',{p_actor:user.id,p_id:file.id}));return {ready:true};
  }
  if(path[0]==='uploads'&&path[2]==='thumbnail'){
-  const file=await asset(path[1]);if(file.owner_id!==user.id)throw new ApiError('Archivo de otro encargado.',403);
+  const file=await asset(path[1]);if(file.owner_id!==user.id&&user.role==='recorder')throw new ApiError('Archivo de otro encargado.',403);
   const input=z.object({base64:z.string().max(1400000)}).parse(body);const bytes=Buffer.from(input.base64,'base64');if(bytes.length>1024*1024||bytes[0]!==255||bytes[1]!==216)throw new ApiError('Miniatura inválida.');
   const r=await admin().storage.from('evidence').upload('thumbnails/'+file.id+'.jpg',bytes,{contentType:'image/jpeg',upsert:true});check(r);check(await admin().rpc('oc_finish_media',{p_actor:user.id,p_id:file.id,p_thumbnail:true}));return {ok:true};
  }
  if(path[0]==='media'&&path[2]==='metadata'){
-  const id=z.string().uuid().parse(path[1]);const data=z.object({name:z.string().trim().min(1).max(300).optional(),note:z.string().max(2000).optional(),category:z.string().max(60).optional(),deleted:z.boolean().optional()}).strict().parse(body);
+  const id=z.string().uuid().parse(path[1]);const data=z.object({name:z.string().trim().min(1).max(300).optional(),note:z.string().max(2000).optional(),category:z.string().max(60).optional(),deleted:z.boolean().optional(),comparisonId:z.string().uuid().nullable().optional()}).strict().parse(body);
   if(!Object.keys(data).length)throw new ApiError('No hay cambios que guardar.');
   const result=await admin().rpc('oc_edit_media',{p_actor:user.id,p_id:id,p_patch:data});if(result.error)throw new ApiError(result.error.code==='42501'?'Solo el autor, coordinador o administrador puede editar.':'No se pudo actualizar el archivo.',result.error.code==='42501'?403:409);return {ok:true};
  }

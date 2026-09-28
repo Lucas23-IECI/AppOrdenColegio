@@ -11,6 +11,14 @@ test('volver desde un visor conserva el espacio y después vuelve al recorrido',
   assert.deepEqual(parentRoute({...room,overlay:{kind:'viewer',id:'video-2'}}),room);
   assert.deepEqual(parentRoute(room),HOME);
 });
+test('la comparación conserva el espacio al recargar y cerrar',()=>{
+ const room:AppRoute={...HOME,roomId:'sala-1',phase:'return'},route:AppRoute={...room,overlay:{kind:'comparison',id:'sala-1'}};
+ assert.deepEqual(parseRoute(routeHash(route)),route);assert.deepEqual(parentRoute(route),room);
+});
+test('el álbum y su etapa se conservan en la ruta y volver lleva a los álbumes',()=>{
+ const album:AppRoute={...HOME,page:'media',roomId:'sala-1',phase:'return'};
+ assert.deepEqual(parseRoute(routeHash(album)),album);assert.deepEqual(parentRoute(album),{...HOME,page:'media'});
+});
 test('la edición directa de una foto se conserva al recargar y vuelve al espacio',()=>{
  const room:AppRoute={...HOME,roomId:'sala-1'};
  for(const tool of ['photo','details'] as const){const route:AppRoute={...room,overlay:{kind:'viewer',id:'foto-1',tool}};assert.deepEqual(parseRoute(routeHash(route)),route);assert.deepEqual(parentRoute(route),room);}

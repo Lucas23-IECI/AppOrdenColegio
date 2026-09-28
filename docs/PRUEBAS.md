@@ -4,6 +4,19 @@ Pruebas del 27 de septiembre de 2026 en Windows, Node 24 y Edge/Chromium. Fixtur
 
 ## Automatizadas
 
+Actualización de álbumes, visor e informe opcional (28 de septiembre):
+
+- 22 pruebas unitarias: incluyen parejas explícitas del mismo espacio, exclusión de papelera/videos, comparación desactivada por defecto, selección vacía, estado del respaldo y rutas de álbumes/comparador.
+- Supabase real: se rechazan parejas de distintos espacios, etapas incorrectas, videos, archivos inexistentes o quitados; un encargado no puede vincular evidencia ajena. Coordinación puede recuperar miniaturas sin completar ni reemplazar originales ajenos. El vínculo se registra en auditoría.
+- Brave con perfil aislado: álbumes, dos tamaños, búsqueda, carga de doce archivos y Mostrar más; recuperación de vista previa interrumpida. Verificación a 320, 390, 768 y 1440 px, incluyendo texto Muy grande.
+- Visor: ampliar, ajustar, anterior/siguiente, gesto táctil sintetizado por el navegador, pantalla completa y Atrás sin recorrer cada foto como una pantalla independiente. Edición directa y permisos conservados.
+- Comparación: guardado desde la interfaz, persistencia tras recargar y lectura desde otro perfil autenticado. Fotos horizontales y verticales completas en ambas columnas; alternancia en celular.
+- PDF generado desde la interfaz en cuatro variantes: sin imágenes, pareja seleccionada, ninguna pareja seleccionada y una sola foto. Se comprobó el número de imágenes incrustadas, la conservación del índice completo y los límites del texto. Páginas renderizadas con Poppler y revisadas visualmente.
+- Supabase real y dos perfiles de Brave: subida de fotografías y MP4 de 11,85 MB mediante TUS; reproducción remota y avance al segundo 5; eliminación controlada de la miniatura de prueba y regeneración desde el original remoto; descarga para uso sin señal con hash SHA-256 idéntico y reproducción offline.
+- Se repitió el recorrido de inventario, recorte/giro conservando el original, papelera/restauración, edición offline y auditoría tras cambiar la galería. Continúa pasando.
+
+Estas pruebas usan archivos y cuentas temporales; su limpieza no elimina la auditoría ni modifica evidencias del equipo. La emulación no equivale a una prueba de cámara o instalación en un teléfono físico.
+
 Accesos visibles a edición de fotos (28 de septiembre):
 
 - Botones Editar y Quitar bajo cada miniatura, de al menos 56 px. Acciones principales del visor visibles al abrir a 320, 390, 768 y 1440 px.
@@ -78,7 +91,7 @@ Actualización de registro abierto y administración:
 
 Pendientes de realizar con el equipo: cámara Android/iPhone, formatos HEIC/HEVC, instalación en pantalla de inicio, comportamiento al bloquear el teléfono y cuota local. Una prueba automatizada con tamaño de pantalla móvil no sustituye estas comprobaciones.
 
-Límite actual de Storage: 50 MB por archivo. Las subidas necesitan la aplicación abierta y conexión; las capturas locales se conservan ante una interrupción. Los videos de otros dispositivos requieren señal.
+Límite actual de Storage: 50 MB por archivo. Las subidas necesitan la aplicación abierta y conexión; las capturas locales se conservan ante una interrupción. Los originales de otros dispositivos requieren conexión o haber usado antes **Guardar para usar sin señal** en su visor.
 
 ## Compatibilidad del ingreso con Brave
 
