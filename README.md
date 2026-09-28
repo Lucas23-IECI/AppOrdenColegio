@@ -29,6 +29,12 @@ En **Ajustes → Cómo quieres ver la app** hay ocho temas planos: Bosque, Azul,
 
 El botón **Atrás** de la aplicación y el del navegador recorren las pantallas visitadas. Desde una foto, video, edición o historial, vuelven a la pantalla que lo abrió. También funcionan Adelante y recargar un espacio. Al agotar el historial interno, el navegador conserva su funcionamiento normal para salir del sitio.
 
+En cada espacio, **Editar inventario** permite agregar, renombrar, copiar y quitar elementos. **Copiar de otro espacio** trae los nombres que faltan; deja las cantidades vacías para contarlas de nuevo. Estas herramientas permanecen cerradas mientras se hace el conteo. **Estado del espacio** también comienza plegado y muestra el avance; tocar una opción seleccionada vuelve a dejarla pendiente.
+
+En el visor de fotos y videos se pueden cambiar nombre, nota y categoría, crear una copia o enviar el archivo a **Papelera**. Las fotos admiten giro y recorte: se guarda una copia JPEG de hasta 2048 px conservando el original intacto. El autor, coordinadores y administradores pueden editar los archivos. La papelera se abre desde **Archivos**; permite restaurar y excluye los archivos quitados de los informes. No elimina físicamente los originales ni libera espacio en Storage.
+
+**Auditoría**, junto a Ajustes, está disponible para administración y coordinación. Incluye espacios, inventario, revisión, archivos, cuentas y permisos, datos del evento e informes archivados. Muestra persona, fecha y valores anteriores y posteriores, con filtros por categoría, nombre/persona y fechas, paginación y descarga CSV. Los cambios sin señal aparecen al respaldarse. Se recuperó el historial anterior disponible de espacios; los demás tipos de cambios se registran desde esta actualización. Los registros se generan en la base de datos y no se pueden editar o borrar desde la app.
+
 ## Archivos y trabajo sin señal
 
 - Cada foto o video se guarda primero en IndexedDB en el teléfono. Se distingue **En este teléfono**, progreso de carga y **Respaldado**.
@@ -39,7 +45,7 @@ El botón **Atrás** de la aplicación y el del navegador recorren las pantallas
 - No borrar los datos del navegador mientras haya pendientes. La cuota local depende del teléfono; la app solicita almacenamiento persistente, pero el navegador puede rechazarlo.
 - HEIC/HEVC depende del navegador. Se conserva el original aunque el dispositivo no permita previsualizarlo.
 - Si dos encargados modifican el mismo espacio, se conservan ambas versiones y se solicita compararlas antes de resolver el conflicto.
-- Añadir un elemento o corregir la recepción exige volver a confirmar las revisiones afectadas; conserva las cantidades y observaciones existentes.
+- Cambiar la estructura del inventario o corregir la recepción exige volver a confirmar las revisiones afectadas; conserva las cantidades y observaciones existentes. Quitar o restaurar una evidencia también reabre la revisión correspondiente.
 
 Los informes son borradores para revisar y firmar; la confirmación del encargado no representa aceptación del colegio.
 
@@ -61,7 +67,7 @@ npm run test:integration
 npm run build
 ```
 
-La prueba de integración requiere las variables de `.env.local`. Crea usuarios, un espacio y un archivo temporales en Supabase, comprueba sus permisos y los elimina en su bloque de limpieza. Usar preferentemente un proyecto de pruebas.
+La prueba de integración requiere las variables de `.env.local`. Crea usuarios, un espacio y un archivo temporales en Supabase, comprueba sus permisos y los elimina en su bloque de limpieza. Sus acciones quedan en auditoría. Usar preferentemente un proyecto de pruebas.
 
 ## Infraestructura
 
@@ -84,6 +90,9 @@ Revisar consumo y cuotas en Supabase/Vercel según el volumen real. Respaldar la
 - `app/auth-panel.tsx`, `app/admin-panel.tsx`: registro, ingreso y administración del equipo.
 - `app/space-overview.tsx`: avance de recepción/devolución, filtros y evidencia por espacio.
 - `app/appearance-panel.tsx`: colores y tamaño de lectura.
+- `app/inventory-panel.tsx`, `app/condition-panel.tsx`: edición de inventario y revisión plegable.
+- `app/media-viewer.tsx`, `app/photo-editor.tsx`: evidencias, copias, recorte, giro y papelera.
+- `app/audit-panel.tsx`, `lib/audit.ts`: auditoría, filtros y CSV.
 - `hooks/use-app-navigation.ts`, `lib/navigation.ts`: historial, enlaces a pantallas y regreso desde visores/formularios.
 - `api/index.ts` y `server/cloud.ts`: API desplegada en Vercel.
 - `supabase/migrations`: tablas, transacciones y permisos.

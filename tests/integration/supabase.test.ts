@@ -50,7 +50,7 @@ test('Supabase: permisos, invitación, conflictos, respaldo privado y revocació
  const admin=createClient(url,secret,{auth:{persistSession:false,autoRefreshToken:false}});
  const client=()=>createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false}});
  const prefix='qa-integration-'+randomUUID(),password=randomUUID()+randomUUID(),name=prefix;
- const ids:string[]=[],roomId=randomUUID(),mediaId=randomUUID();let inviteHash='';
+ const ids:string[]=[],roomId=randomUUID(),mediaId=randomUUID();let inviteHash='',reportId='';
  async function call(path:string,token?:string,body?:unknown){const response=await handleRequest(new Request('https://example.test/api/'+path,{method:body===undefined?'GET':'POST',headers:{...(token?{authorization:'Bearer '+token}:{}),'content-type':'application/json'},...(body===undefined?{}:{body:JSON.stringify(body)})}));return {status:response.status,data:await response.json()};}
  function checked(result:{error:unknown}){assert.equal(result.error,null);}
  try{
@@ -76,14 +76,32 @@ test('Supabase: permisos, invitación, conflictos, respaldo privado y revocació
   assert.ok((await anon.storage.from('evidence').download(init.data.objectPath)).error);
   const signed=await call('media/'+mediaId,recorderToken);assert.equal(signed.status,200);const download=await fetch(signed.data.url);assert.equal(download.status,200);assert.deepEqual(Buffer.from(await download.arrayBuffer()),bytes);
   assert.equal((await call('media/'+mediaId+'/metadata',recorderToken,{note:'No permitido',category:'General'})).status,403);
+  assert.equal((await call('audit',recorderToken)).status,403);
+  assert.equal((await call('media/'+mediaId+'/metadata',recorderToken,{deleted:true})).status,403);
+  const latestRoom=changes.find(result=>result.status===200)!.data.room;
+  const confirmed={...latestRoom,mutationId:randomUUID(),items:latestRoom.items.map((item:Record<string,unknown>)=>({...item,reception:0,return:0})),reception:{...latestRoom.reception,checks:Object.fromEntries(Object.keys(latestRoom.reception.checks).map(key=>[key,'ok'])),confirmedAt:new Date().toISOString(),confirmedBy:name},return:{...latestRoom.return,checks:Object.fromEntries(Object.keys(latestRoom.return.checks).map(key=>[key,'ok'])),confirmedAt:new Date().toISOString(),confirmedBy:name}};
+  assert.equal((await call('rooms',token,confirmed)).status,200);
+  assert.equal((await call('media/'+mediaId+'/metadata',token,{name:prefix+' evidencia',note:'Detalle actualizado',deleted:true})).status,200);
+  const afterTrash=(await call('bootstrap',token)).data;
+  const trashed=afterTrash.media.find((m:{id:string})=>m.id===mediaId);assert.equal(trashed.deleted,true);assert.equal(trashed.name,prefix+' evidencia');
+  const reopened=afterTrash.rooms.find((room:{id:string})=>room.id===roomId);assert.equal(reopened.reception.confirmedAt,null);assert.equal(reopened.return.confirmedAt,null);assert.equal(reopened.revision,confirmed.revision+2,'Confirmar y quitar evidencia crean revisiones separadas');
+  assert.equal((await call('uploads/'+mediaId+'/thumbnail',token,{base64:'/9j/2Q=='})).status,200);
+  const afterThumbnail=(await call('bootstrap',token)).data.media.find((m:{id:string})=>m.id===mediaId);assert.equal(afterThumbnail.deleted,true);assert.equal(afterThumbnail.note,'Detalle actualizado');
+  assert.equal((await call('media/'+mediaId+'/metadata',token,{deleted:false})).status,200);
+  const audit=await call('audit?category=files&search='+encodeURIComponent(prefix+' evidencia'),token);assert.equal(audit.status,200);assert.ok(audit.data.entries.some((e:{action:string})=>e.action==='trashed'));assert.ok(audit.data.entries.some((e:{action:string})=>e.action==='restored'));assert.ok(audit.data.entries.every((e:{actor_id:string})=>e.actor_id===ids[0]));
+  assert.ok((await anon.from('oc_audit').select('*')).error);assert.ok((await other.from('oc_audit').insert({category:'files'})).error);
   assert.equal((await call('auth/team',recorderToken)).status,403);
   assert.equal((await call('auth/member',recorderToken,{userId:ids[1],role:'admin'})).status,403);
   assert.equal((await call('auth/member',token,{userId:ids[1],role:'superadmin'})).status,400);
   assert.equal((await call('auth/member',token,{userId:ids[1],role:'coordinator'})).status,200);
   assert.equal((await call('bootstrap',recorderToken)).data.user.role,'coordinator');
+  const roleAudit=await call('audit?category=team&search='+encodeURIComponent(prefix),recorderToken);assert.equal(roleAudit.status,200);assert.ok(roleAudit.data.entries.some((entry:{action:string;entity_id:string;actor_id:string})=>entry.action==='role'&&entry.entity_id===ids[1]&&entry.actor_id===ids[0]));
   assert.equal((await call('auth/member',recorderToken,{userId:ids[1],role:'admin'})).status,403);
   assert.equal((await call('auth/revoke',recorderToken,{userId:ids[0]})).status,403);
   assert.equal((await call('media/'+mediaId+'/metadata',recorderToken,{note:'Revisado por coordinación',category:'General'})).status,200);
+  const coordinatorAudit=await call('audit?category=files&search='+encodeURIComponent(prefix+' evidencia'),token);assert.ok(coordinatorAudit.data.entries.some((entry:{entity_id:string;actor_id:string;after_data:{note:string}})=>entry.entity_id===mediaId&&entry.actor_id===ids[1]&&entry.after_data.note==='Revisado por coordinación'));
+  const report=await call('reports',recorderToken,{title:prefix+' informe',text:'Registro temporal de prueba',roomIds:[roomId],kind:'comparison'});assert.equal(report.status,200);reportId=report.data.id;
+  const reportAudit=await call('audit?category=reports&search='+encodeURIComponent(prefix),token);assert.ok(reportAudit.data.entries.some((entry:{entity_id:string;actor_id:string})=>entry.entity_id===reportId&&entry.actor_id===ids[1]));
   assert.equal((await call('auth/member',token,{userId:ids[1],role:'admin'})).status,200);
   assert.equal((await call('auth/team',recorderToken)).status,200);
   assert.equal((await call('auth/member',recorderToken,{userId:ids[0],role:'recorder'})).status,200);
@@ -95,6 +113,7 @@ test('Supabase: permisos, invitación, conflictos, respaldo privado y revocació
   assert.equal((await call('bootstrap',recorderToken)).status,200);
   assert.ok((await anon.rpc('oc_manage_member',{p_actor:ids[0],p_target:ids[1],p_role:'admin'})).error);
  }finally{
+  if(reportId)checked(await admin.from('oc_reports').delete().eq('id',reportId));
   checked(await admin.storage.from('evidence').remove(['originals/'+mediaId,'thumbnails/'+mediaId+'.jpg']));
   checked(await admin.from('oc_media').delete().eq('id',mediaId));checked(await admin.from('oc_history').delete().eq('room_id',roomId));checked(await admin.from('oc_rooms').delete().eq('id',roomId));
   if(inviteHash)checked(await admin.from('oc_invites').delete().eq('code_hash',inviteHash));

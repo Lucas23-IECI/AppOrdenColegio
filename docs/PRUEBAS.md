@@ -4,6 +4,19 @@ Pruebas del 27 de septiembre de 2026 en Windows, Node 24 y Edge/Chromium. Fixtur
 
 ## Automatizadas
 
+Actualización de inventario, evidencias y auditoría:
+
+- Inventario: agregar, renombrar conservando cantidades, copiar elementos y nombres de otro espacio sin copiar cantidades, quitar y volver a confirmar las revisiones afectadas.
+- Estado plegado por defecto; tocar de nuevo Bien, Observación o No aplica elimina esa selección sin borrar las observaciones.
+- Brave con perfil aislado y Supabase real: foto subida, nombre y nota editados, giro y recorte cuadrados, copia JPEG y original descargado idéntico byte a byte al archivo de entrada.
+- Papelera y restauración desde la interfaz; se reabre la recepción confirmada. Un reintento de miniatura no deshace la eliminación ni la nota.
+- Cambio de nombre sin conexión y posterior sincronización; la fusión conserva metadatos locales pendientes.
+- Auditoría con datos reales, búsqueda, vista de diferencias, contexto de espacio/etapa y CSV. Las celdas exportadas neutralizan fórmulas de hojas de cálculo.
+- Acceso a auditoría limitado a coordinación/administración; lectura anónima e inserción directa de usuarios rechazadas. Los cambios hechos por coordinación se atribuyen a quien los hizo, no al propietario del archivo.
+- Prueba de carrera: si llega una edición mientras se lee el inventario local, se descarta la lectura anterior antes de actualizar la pantalla.
+- Navegación y menú de seis pestañas comprobados a 320, 390, 768 y 1440 px sin desbordamiento horizontal. Se conserva la prueba de ocho temas y texto Muy grande.
+- Se eliminan únicamente las cuentas, salas, informes y archivos temporales de las pruebas. Sus acciones quedan en auditoría; los datos reales del equipo no se modifican.
+
 Actualización de lectura y navegación:
 
 - Rutas de espacios, recepción/devolución, archivos, informes, respaldo y ajustes; enlaces desconocidos normalizados sin conservar parámetros de acceso.

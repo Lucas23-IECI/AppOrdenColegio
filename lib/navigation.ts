@@ -1,6 +1,6 @@
 import type {Phase} from './model';
 
-export const PAGE_PATHS = {spaces:'espacios',media:'archivos',reports:'informes',backup:'respaldo',settings:'ajustes'} as const;
+export const PAGE_PATHS = {spaces:'espacios',media:'archivos',reports:'informes',backup:'respaldo',settings:'ajustes',audit:'auditoria'} as const;
 export type Page = keyof typeof PAGE_PATHS;
 export type Overlay = {kind:'viewer'|'editor'|'history'; id:string};
 export type AppRoute = {page:Page; roomId:string|null; phase:Phase; reportScope:string; overlay:Overlay|null};

@@ -1,4 +1,5 @@
 import type {LocalRoom,Media,User,Room,EventInfo} from './model';
+import {mergeMedia} from './media-state';
 let connection:Promise<IDBDatabase>|null=null;
 let activeId='';
 function request<T>(r:IDBRequest<T>){return new Promise<T>((resolve,reject)=>{r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});}
@@ -19,7 +20,7 @@ export async function cacheFile(id:string,blob:Blob){const db=await open();const
 export async function setMeta(key:string,value:unknown){const db=await open();const tx=db.transaction('meta','readwrite');tx.objectStore('meta').put(value,key);await finished(tx);}
 export async function getMeta<T>(key:string){const db=await open();return request(db.transaction('meta').objectStore('meta').get(key)) as Promise<T|undefined>;}
 export async function acceptSync(sent:LocalRoom,server:Room){const db=await open();const tx=db.transaction('rooms','readwrite');const store=tx.objectStore('rooms');const current=await request(store.get(sent.id)) as LocalRoom|undefined;if(current){store.put(current.localVersion===sent.localVersion?{...server,dirty:false}:{...current,revision:server.revision});}await finished(tx);}
-export async function mergeServer(rooms:Room[],media:Media[]){const db=await open();const tx=db.transaction(['rooms','media'],'readwrite');const rs=tx.objectStore('rooms');const ms=tx.objectStore('media');for(const remote of rooms){const local=await request(rs.get(remote.id)) as LocalRoom|undefined;if(!local||!local.dirty){rs.put({...remote,dirty:false});}else if(remote.revision>local.revision&&remote.mutationId!==local.mutationId){rs.put({...local,conflict:remote});}}for(const remote of media){const local=await request(ms.get(remote.id)) as Media|undefined;ms.put({...local,...remote,...(local?.metaDirty?{note:local.note,category:local.category,metaDirty:true}:{}),status:'ready'});}await finished(tx);}
+export async function mergeServer(rooms:Room[],media:Media[]){const db=await open();const tx=db.transaction(['rooms','media'],'readwrite');const rs=tx.objectStore('rooms');const ms=tx.objectStore('media');for(const remote of rooms){const local=await request(rs.get(remote.id)) as LocalRoom|undefined;if(!local||!local.dirty){rs.put({...remote,dirty:false});}else if(remote.revision>local.revision&&remote.mutationId!==local.mutationId){rs.put({...local,conflict:remote});}}for(const remote of media){const local=await request(ms.get(remote.id)) as Media|undefined;ms.put(mergeMedia(local,remote));}await finished(tx);}
 export async function storageEstimate(){return navigator.storage?.estimate?navigator.storage.estimate():{};}
 export async function requestPersistence(){return navigator.storage?.persist? navigator.storage.persist():false;}
 export type Bootstrap={user:User;rooms:Room[];media:Media[];team:User[];event:EventInfo};
