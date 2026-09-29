@@ -28,3 +28,19 @@ test('enlaces desconocidos o parámetros de acceso no se convierten en rutas de 
   for(const hash of ['#login','#setup=private','#register','#/fuera','#/espacios/<script>/devolucion?visor=%3Cscript%3E'])assert.deepEqual(parseRoute(hash),HOME);
   assert.equal(routeHash(parseRoute('#/ajustes?setup=secret')).includes('secret'),false);
 });
+
+test('Más tiene ruta propia y las secciones del espacio sobreviven al visor y recarga',()=>{
+ const more:AppRoute={...HOME,page:'more'};
+ assert.equal(routeHash(more),'#/mas');assert.deepEqual(parseRoute('#/mas'),more);
+ assert.deepEqual(parentRoute(more),HOME);
+ for(const section of ['inventory','condition'] as const){
+  const room:AppRoute={...HOME,roomId:'sala-1',phase:'return',section};
+  const viewer:AppRoute={...room,overlay:{kind:'viewer',id:'foto-1'}};
+  assert.deepEqual(parseRoute(routeHash(room)),room);
+  assert.deepEqual(parseRoute(routeHash(viewer)),viewer);
+  assert.deepEqual(parentRoute(viewer),room);
+  assert.deepEqual(parentRoute(room),HOME);
+ }
+ assert.equal(parseRoute('#/archivos/sala-1/recepcion?vista=inventario').section,undefined);
+ assert.equal(parseRoute('#/espacios/sala-1/recepcion?vista=desconocida').section,undefined);
+});

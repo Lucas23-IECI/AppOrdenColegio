@@ -4,6 +4,16 @@ Pruebas del 27 de septiembre de 2026 en Windows, Node 24 y Edge/Chromium. Fixtur
 
 ## Automatizadas
 
+Actualización de distribución móvil y revisión guiada (28 de septiembre):
+
+- 28 pruebas unitarias aprobadas y comprobación de tipos sin errores. Las nuevas pruebas cubren la ruta Más, secciones conservadas al recargar/cerrar visores, cantidades vacías frente a cero, evidencia por espacio/etapa, observaciones, recepción previa y conflictos. Un respaldo pendiente no impide confirmar una revisión completa.
+- Brave con perfil aislado y API simulada: a 390 × 640 px se ve la primera sala sin desplazarse. Menú inferior de una fila con Espacios, Archivos y Más; opciones secundarias accesibles desde Más.
+- Navegación Atrás/Adelante, acceso mediante teclado, recarga de Inventario/Revisión y conservación de cantidades y notas. En celular solo se muestra la sección elegida; en computador siguen juntos los tres paneles.
+- Ver qué falta abre las cantidades, evidencias o estados pendientes. Se comprobó la selección y deselección de Bien, la exigencia de notas al marcar Observación, la confirmación sin conexión y la reapertura para corregir.
+- Diez pantallas/rutas comprobadas a 320, 360, 390, 768 y 1440 px con texto Grande y Muy grande, sin desbordamiento horizontal. Capturas de inicio, Más, fotos, inventario y revisión inspeccionadas visualmente.
+- Regresión de fotos: Editar/Quitar siguen visibles con botones de al menos 56 px; edición directa, recarga, Atrás, cancelación de borrado y permisos de autor/coordinación comprobados a 320, 390, 768 y 1440 px.
+- Compilación de producción aprobada. Esta entrega modifica la interfaz; no introduce migraciones ni modifica registros reales del evento. Las pruebas con tamaño móvil no sustituyen la validación de cámara en Android/iPhone físicos.
+
 Actualización de álbumes, visor e informe opcional (28 de septiembre):
 
 - 22 pruebas unitarias: incluyen parejas explícitas del mismo espacio, exclusión de papelera/videos, comparación desactivada por defecto, selección vacía, estado del respaldo y rutas de álbumes/comparador.

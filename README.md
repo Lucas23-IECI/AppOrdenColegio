@@ -25,7 +25,13 @@ En **Ajustes → Administración del equipo**, un administrador puede buscar cue
 
 En **Ajustes → Equipo** está el enlace para compartir el registro. La aplicación no envía invitaciones ni correos de confirmación. El correo sirve para iniciar sesión; no se verifica su propiedad durante el registro.
 
-En **Ajustes → Cómo quieres ver la app** hay ocho temas planos: Bosque, Azul, Naranjo, Ciruela, Océano, Arena, Noche y Contraste. Texto Grande por defecto o Muy grande; ambas preferencias se conservan por dispositivo. Los botones principales miden al menos 56 px de alto, los controles de cámara están separados en celular y los filtros se muestran completos.
+En celular, el menú inferior tiene **Espacios, Archivos y Más**. En **Más** están Informes, Respaldo, Ajustes y, para coordinación/administración, Auditoría. El inicio muestra la lista de espacios, búsqueda y un resumen desplegable del avance; los filtros se abren cuando se necesitan.
+
+Dentro de cada espacio, primero se elige **Recepción o Devolución** y luego **Fotos, Inventario o Revisión**. En computador se mantienen los paneles juntos. **Opciones** permite editar el espacio o abrir su historial. Editar y Quitar siguen visibles bajo cada evidencia.
+
+En **Revisión → Para terminar**, **Ver qué falta** lleva a las cantidades, estados, observaciones o evidencias pendientes. La confirmación se habilita cuando está completo, también sin señal; el respaldo pendiente se indica por separado. Las revisiones confirmadas permiten abrir una corrección desde **Detalles y acciones**.
+
+En **Ajustes → Cómo quieres ver la app** hay ocho temas planos: Bosque, Azul, Naranjo, Ciruela, Océano, Arena, Noche y Contraste. Texto Grande por defecto o Muy grande; ambas preferencias se conservan por dispositivo. Los botones principales miden al menos 56 px de alto y los controles de cámara están separados en celular.
 
 El botón **Atrás** de la aplicación y el del navegador recorren las pantallas visitadas. Desde una foto, video, edición o historial, vuelven a la pantalla que lo abrió. También funcionan Adelante y recargar un espacio. Al agotar el historial interno, el navegador conserva su funcionamiento normal para salir del sitio.
 
@@ -92,7 +98,9 @@ Revisar consumo y cuotas en Supabase/Vercel según el volumen real. Respaldar la
 
 ## Código
 
-- `app/colegio-app.tsx` y `app/globals.css`: interfaz y temas.
+- `app/colegio-app.tsx`, `app/globals.css` y `app/mobile-layout.css`: interfaz, temas y distribución móvil.
+- `app/app-navigation.tsx`: navegación móvil y pantalla Más.
+- `app/review-completion.tsx`, `lib/review-readiness.ts`: requisitos pendientes de cada revisión y accesos para completarlos.
 - `app/auth-panel.tsx`, `app/admin-panel.tsx`: registro, ingreso y administración del equipo.
 - `app/space-overview.tsx`: avance de recepción/devolución, filtros y evidencia por espacio.
 - `app/appearance-panel.tsx`: colores y tamaño de lectura.
