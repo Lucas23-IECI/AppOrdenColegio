@@ -1,4 +1,4 @@
-import {type Room, type Phase, type CheckState, uuid} from './model';
+import {type Room, type Phase, type CheckState, uuid} from './model.js';
 
 export function reopenInspection<T extends Room>(room:T,phase:Phase):T {
  const clear=(stage:Room['reception'])=>({...stage,confirmedAt:null,confirmedBy:null});
