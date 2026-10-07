@@ -14,6 +14,8 @@ test('Neon Storage: private originals, browser CORS, resumed multipart upload an
  async function call(path:string,cookie='',body?:unknown){const response=await handleRequest(new Request('http://127.0.0.1:5173/api/'+path,{method:body===undefined?'GET':'POST',headers:{'content-type':'application/json',origin:'http://127.0.0.1:5173',...(cookie?{cookie}:{})},body:body===undefined?undefined:JSON.stringify(body)}));return {status:response.status,data:await response.json(),cookie:response.headers.getSetCookie().map(v=>v.split(';')[0]).join('; ')};}
  try{
   const account=await call('auth/register','',{name:'QA archivos',email,password});assert.equal(account.status,200);const cookie=account.cookie;
+  // This disposable fixture needs upload permission; new accounts default to viewing.
+  await database().query("update oc_members set role='admin' where email=$1",[email]);
   const room={...newRoom('QA archivo temporal'),mutationId:randomUUID()};assert.equal((await call('rooms',cookie,room)).status,200);
   const bytes=Buffer.alloc(7*1024*1024+137,0x5a);const input={id,roomId:room.id,phase:'reception',name:'prueba.mp4',mime:'video/mp4',size:bytes.length,createdAt:new Date().toISOString(),note:'Prueba temporal',category:'General'};
   const init=await call('uploads/init',cookie,input);assert.equal(init.status,200);assert.equal(init.data.protocol,'s3-multipart');assert.deepEqual(init.data.parts,[]);

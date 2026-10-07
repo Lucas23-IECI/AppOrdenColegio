@@ -1,3 +1,5 @@
+import {LoadingSkeleton} from './loading-skeleton';
+import {canWrite} from '../lib/permissions';
 import {useEffect,useState} from 'react';
 import {Download,Pencil,Copy,Trash2,RotateCcw,ChevronDown,ChevronLeft,ChevronRight,Maximize,Minimize,Smartphone,Check} from 'lucide-react';
 import {Dialog,DialogContent,DialogTitle,DialogDescription} from '@/components/ui/dialog';
@@ -10,13 +12,14 @@ import {fileBlob} from '../lib/local-store';
 import {backupLabel} from '../lib/evidence';
 import './evidence.css';
 
-export function canEditMedia(media:Media,user:User){return user.role!=='recorder'||media.ownerId===user.id||(!media.ownerId&&media.status!=='ready');}
+export function canEditMedia(media:Media,user:User){return canWrite(user)&&(user.role!=='recorder'||media.ownerId===user.id||(!media.ownerId&&media.status!=='ready'));}
 export type MediaPatch={name?:string;note?:string;category?:string;deleted?:boolean;comparisonId?:string|null};
 export function MediaViewer({media,user,tool,items=[],onNavigate,onClose,onSave,onCopy}:{media:Media|null;user:User|null;tool?:'photo'|'details';items?:Media[];onNavigate?:(media:Media)=>void;onClose:()=>void;onSave:(media:Media,patch:MediaPatch)=>Promise<void>;onCopy:(media:Media,edited?:Blob)=>Promise<void>}){
  const [src,setSrc]=useState(''),[error,setError]=useState(''),[note,setNote]=useState(''),[name,setName]=useState(''),[category,setCategory]=useState('General'),[busy,setBusy]=useState(false),[editingPhoto,setEditingPhoto]=useState(false),[notice,setNotice]=useState('');
+ const [contentReady,setContentReady]=useState(false);
  const [expanded,setExpanded]=useState(false),[cached,setCached]=useState(false),[downloadProgress,setDownloadProgress]=useState(0),[sourceAttempt,setSourceAttempt]=useState(0);
  useEffect(()=>{setNote(media?.note??'');setName(media?.name??'');setCategory(media?.category??'General');setEditingPhoto(tool==='photo'&&!!media?.mime.startsWith('image/'));setNotice('');},[media?.id,tool]);
- useEffect(()=>{let local='';let cancelled=false;setSrc('');setError('');if(media)mediaUrl(media).then(r=>{if(cancelled){if(r.local)URL.revokeObjectURL(r.url);return;}local=r.local?r.url:'';setSrc(r.url);if(!r.url)setError('El original está en el teléfono que lo registró.');}).catch(e=>{if(!cancelled)setError((e as Error).message);});return()=>{cancelled=true;if(local)URL.revokeObjectURL(local);};},[media?.id,media?.status,sourceAttempt]);
+ useEffect(()=>{let local='';let cancelled=false;setSrc('');setError('');setContentReady(false);if(media)mediaUrl(media).then(r=>{if(cancelled){if(r.local)URL.revokeObjectURL(r.url);return;}local=r.local?r.url:'';setSrc(r.url);if(!r.url)setError('El original está en el teléfono que lo registró.');}).catch(e=>{if(!cancelled)setError((e as Error).message);});return()=>{cancelled=true;if(local)URL.revokeObjectURL(local);};},[media?.id,media?.status,sourceAttempt]);
  async function act(fn:()=>Promise<void>){setBusy(true);setError('');setNotice('');try{await fn();}catch(e){setError((e as Error).message);}finally{setBusy(false);}}
  const index=items.findIndex(m=>m.id===media?.id),previous=index>0?items[index-1]:undefined,next=index>=0?items[index+1]:undefined;
  const move=(item:Media|undefined)=>{if(item&&!busy&&!editingPhoto)onNavigate?.(item);};
@@ -33,9 +36,12 @@ export function MediaViewer({media,user,tool,items=[],onNavigate,onClose,onSave,
   <button className="button secondary danger-button" disabled={busy} onClick={()=>{if(confirm('¿Quitar “'+media.name+'”? Quedará en la papelera y podrás recuperarlo.'))void act(async()=>{await onSave(media,{deleted:true});onClose();});}}><Trash2 size={22}/>{media.mime.startsWith('image/')?'Quitar foto':'Quitar video'}</button>
  </div>}
  {editable&&media.deleted&&<button className="button primary" disabled={busy} onClick={()=>void act(async()=>{await onSave(media,{deleted:false});onClose();})}><RotateCcw size={22}/>Restaurar archivo</button>}
- {!editable&&<p className="reception-note">Registrado por {media.author}. Puede editarlo o quitarlo su autor, un coordinador o un administrador.</p>}
+ {!editable&&<p className="fine-print">{user?.role==='viewer'?'Acceso de solo lectura · ':'Registrado por '}{media.author}</p>}
  {error&&<div role="alert" className="auth-error">{error}<button className="button secondary spaced" onClick={()=>setSourceAttempt(n=>n+1)}>Reintentar archivo</button></div>}{notice&&<p role="status" className="admin-message">{notice}</p>}
- {editable&&!media.deleted&&editingPhoto?<PhotoEditor src={src} onCancel={()=>setEditingPhoto(false)} onSave={async blob=>{setBusy(true);try{await onCopy(media,blob);setEditingPhoto(false);setNotice('Copia editada guardada. El original se conserva.');}finally{setBusy(false);}}}/>:src&&(media.mime.startsWith('video/')?<video src={src} controls playsInline preload="metadata" onError={()=>setError('Este navegador no reproduce el formato. Puedes descargar el original.')}/>:<ZoomImage src={src} alt={media.note||media.name} onPrevious={previous?()=>move(previous):undefined} onNext={next?()=>move(next):undefined} onError={()=>setError('No se puede mostrar este formato aquí. Descarga el original o reintenta.')}/>)}
+ {!editingPhoto&&!contentReady&&!error&&<LoadingSkeleton kind="media" label="Abriendo archivo…"/>}
+ <div className={!editingPhoto&&!contentReady?'viewer-content viewer-content-loading':'viewer-content'}>
+ {editable&&!media.deleted&&editingPhoto?<PhotoEditor src={src} onCancel={()=>setEditingPhoto(false)} onSave={async blob=>{setBusy(true);try{await onCopy(media,blob);setEditingPhoto(false);setNotice('Copia editada guardada. El original se conserva.');}finally{setBusy(false);}}}/>:src&&(media.mime.startsWith('video/')?<video src={src} controls playsInline preload="metadata" onLoadedMetadata={()=>setContentReady(true)} onLoadedData={()=>setContentReady(true)} onCanPlay={()=>setContentReady(true)} onError={()=>setError('Este navegador no reproduce el formato. Puedes descargar el original.')}/>:<ZoomImage src={src} onLoad={()=>setContentReady(true)} alt={media.note||media.name} onPrevious={previous?()=>move(previous):undefined} onNext={next?()=>move(next):undefined} onError={()=>setError('No se puede mostrar este formato aquí. Descarga el original o reintenta.')}/>)}
+ </div>
  {!editingPhoto&&index>=0&&items.length>1&&<div className="viewer-navigation"><button className="button secondary" disabled={!previous||busy} onClick={()=>move(previous)}><ChevronLeft size={24}/>Anterior</button><span>{index+1} de {items.length}</span><button className="button secondary" disabled={!next||busy} onClick={()=>move(next)}>Siguiente<ChevronRight size={24}/></button></div>}
  {editable&&!media.deleted&&!editingPhoto&&<>
   <div className="actions"><button className="button secondary" disabled={!src||busy} onClick={()=>void act(async()=>{await onCopy(media);setNotice('Copia guardada en este espacio.');})}><Copy size={22}/>Crear copia</button></div>

@@ -6,7 +6,7 @@ Aplicación para recibir y devolver salas y otros espacios del evento en Hualqui
 
 ## Uso
 
-Cada encargado puede abrir la aplicación y pulsar **Crear cuenta** con nombre, correo y contraseña. No necesita clave de instalación ni invitación. Las cuentas nuevas comparten el evento y entran como encargados; la primera cuenta de una instalación vacía es administradora. Las cuentas existentes conservan su acceso.
+Cada encargado puede abrir la aplicación y pulsar **Crear cuenta** con nombre, correo y contraseña. No necesita clave de instalación ni invitación. Las cuentas nuevas comparten el evento y entran con Solo lectura; un administrador les da permiso para editar. La primera cuenta de una instalación vacía es administradora principal. Las cuentas existentes conservan su acceso.
 
 1. Crear 18 salas con un botón, o añadir espacios individualmente. Editar nombre, tipo, recinto, sector y encargado; archivar y restaurar sin borrar registros.
 2. Abrir un espacio y registrar **Recepción**: cantidades, revisión del estado, fotos, videos y observaciones. Confirmar cuando esté completo.
@@ -15,13 +15,14 @@ Cada encargado puede abrir la aplicación y pulsar **Crear cuenta** con nombre, 
 5. Al devolver, completar **Devolución**, comparar con la recepción y revisar las diferencias de inventario.
 6. Desde **Informes**, elegir si el PDF lleva fotos individuales, comparación visual o ninguna imagen. Seleccionar las fotos y parejas de esta descarga. También se puede descargar texto o ZIP con originales; las versiones archivadas del texto quedan disponibles para el equipo.
 
-En **Ajustes → Administración del equipo**, un administrador puede buscar cuentas, cambiar su rol y desactivar o reactivar accesos. La cuenta que antes era coordinadora se conserva como administradora. No se puede quitar ni desactivar al último administrador activo. La desactivación bloquea el servidor y conserva los registros; no borra las copias que ya estaban guardadas en un teléfono.
+En **Ajustes → Administración del equipo**, un administrador puede buscar cuentas, elegir Administrador o Solo lectura (también Coordinador y Encargado) y pulsar **Guardar permiso**. Puede desactivar o reactivar accesos. La cuenta que antes era coordinadora se conserva como administradora. La cuenta marcada como administradora principal no se puede desactivar ni cambiar de rol, incluso si hay otros administradores. Tampoco se puede quitar al último administrador activo. La desactivación bloquea el servidor y conserva los registros; no borra las copias que ya estaban guardadas en un teléfono.
 
 | Rol | Permisos |
 | --- | --- |
 | Administrador | Gestionar equipo y permisos, datos del evento, espacios y evidencias. |
 | Coordinador | Gestionar datos del evento, archivar/restaurar espacios y editar notas de evidencias del equipo. |
 | Encargado | Crear y registrar espacios, subir fotos/videos, editar notas propias y generar informes. |
+| Solo lectura | Consultar espacios, originales, historial e informes; descargar sin modificar registros. |
 
 En **Ajustes → Equipo** está el enlace para compartir el registro. La aplicación no envía invitaciones ni correos de confirmación. El correo sirve para iniciar sesión; no se verifica su propiedad durante el registro.
 
@@ -29,7 +30,7 @@ En celular, el menú inferior tiene **Espacios, Archivos y Más**. En **Más** e
 
 Dentro de cada espacio, primero se elige **Recepción o Devolución** y luego **Fotos, Inventario o Revisión**. En computador se mantienen los paneles juntos. **Opciones** permite editar el espacio o abrir su historial. Editar y Quitar siguen visibles bajo cada evidencia.
 
-En **Revisión → Para terminar**, **Ver qué falta** lleva a las cantidades, estados, observaciones o evidencias pendientes. La confirmación se habilita cuando está completo, también sin señal; el respaldo pendiente se indica por separado. Las revisiones confirmadas permiten abrir una corrección desde **Detalles y acciones**.
+En **Revisión → Para terminar**, **Ver qué falta** lleva a las cantidades, estados, observaciones o evidencias pendientes. La confirmación se habilita cuando está completo, también sin señal; el respaldo pendiente se indica por separado. Las revisiones confirmadas muestran **Editar esta recepción** o **Editar esta devolución** junto a las etapas. La corrección conserva cantidades, notas, evidencias e historial y exige confirmar de nuevo. Añadir evidencias y corregir el inventario también reabre la revisión afectada.
 
 En **Ajustes → Cómo quieres ver la app** hay ocho temas planos: Bosque, Azul, Naranjo, Ciruela, Océano, Arena, Noche y Contraste. Texto Grande por defecto o Muy grande; ambas preferencias se conservan por dispositivo. Los botones principales miden al menos 56 px de alto y los controles de cámara están separados en celular.
 

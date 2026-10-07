@@ -57,7 +57,7 @@ export function AuthPanel() {
       {error && <p className="auth-error" role="alert">{error}</p>}
       <button className="button primary" disabled={busy}>{busy ? <><Loader2 size={18} className="spin"/>{registering ? 'Creando tu cuenta…' : 'Entrando…'}</> : <>{registering ? 'Crear cuenta y entrar' : 'Entrar'}<ArrowRight size={18}/></>}</button>
     </form>
-    <div className="auth-context"><Users size={18}/><p>Las cuentas de este evento trabajan en los mismos espacios. Cada registro conserva el nombre de quien lo hizo.</p></div>
+    <div className="auth-context"><Users size={18}/><p>Las cuentas nuevas pueden consultar el evento. El administrador habilita la edición y la subida de fotos y videos.</p></div>
   </section>;
 }
 
@@ -68,7 +68,7 @@ export function TeamAccess({user, team, pending, onChange}: {user: User; team: U
     <p className="subtle">Conectado como {user.name} · {ROLE_LABELS[user.role]}</p>
     <div className="invite-result">
       <label className="field"><span>Enlace para sumar al equipo</span><input readOnly value={link} onFocus={e => e.target.select()}/></label>
-      <p className="fine-print">Compártelo con los encargados. Cada uno puede crear su cuenta y empezar a registrar.</p>
+      <p className="fine-print">Compártelo con los encargados. Cada uno crea su cuenta; un administrador le asigna permiso para registrar.</p>
       <button className="button secondary" onClick={async () => {
         try {await navigator.clipboard.writeText(link); setMessage('Enlace copiado.');}
         catch {setMessage('Selecciona y copia el enlace.');}

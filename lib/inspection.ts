@@ -5,6 +5,14 @@ export function reopenInspection<T extends Room>(room:T,phase:Phase):T {
  return {...room,[phase]:clear(room[phase]),...(phase==='reception'?{return:clear(room.return)}:{})};
 }
 
+// A correction cannot silently retain the confirmation of different contents.
+export function reopenChangedInspection<T extends Room>(before:Room,next:T):T {
+ const content=(room:Room,phase:Phase)=>JSON.stringify({items:room.items.map(i=>({id:i.id,name:i.name,count:i[phase]})),notes:room[phase].notes,checks:room[phase].checks});
+ let result=next;
+ for(const phase of ['reception','return'] as const)if(before[phase].confirmedAt&&result[phase].confirmedAt===before[phase].confirmedAt&&content(before,phase)!==content(result,phase))result=reopenInspection(result,phase);
+ return result;
+}
+
 export function addInventoryItem<T extends Room>(room:T,name:string):T {
  const clean=validateName(room,name);
  if(room.items.length>=150)throw new Error('El inventario admite hasta 150 elementos.');

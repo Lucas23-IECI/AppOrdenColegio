@@ -11,6 +11,7 @@ type Props = {
   event: EventInfo;
   pending: number;
   busy: boolean;
+  readOnly?: boolean;
   onAdd: () => void;
   onBulk: () => void;
   onOpen: (id: string) => void;
@@ -18,7 +19,7 @@ type Props = {
   renderCover: (media: Media) => ReactNode;
 };
 
-export function SpaceOverview({filters,onFiltersChange,rooms, media, event, pending, busy, onAdd, onBulk, onOpen, onBackup, renderCover}: Props) {
+export function SpaceOverview({filters,onFiltersChange,rooms, media, event, pending, busy, readOnly=false, onAdd, onBulk, onOpen, onBackup, renderCover}: Props) {
   const {search,site,filter}=filters;
   const [filtersOpen,setFiltersOpen]=useState(false);
   const setSearch=(search:string)=>onFiltersChange({...filters,search});
@@ -42,7 +43,7 @@ export function SpaceOverview({filters,onFiltersChange,rooms, media, event, pend
   return <>
     <div className="section-heading overview-heading">
       <div><p className="overview-event">{event.name}</p><h1>Espacios <span className="heading-count" aria-label={`${rooms.length} espacios`}>{rooms.length}</span></h1></div>
-      <button className="button secondary overview-add" aria-label="Añadir espacio" onClick={onAdd}><Plus size={20}/>Añadir</button>
+      {!readOnly&&<button className="button secondary overview-add" aria-label="Añadir espacio" onClick={onAdd}><Plus size={20}/>Añadir</button>}
     </div>
     <details className="overview-summary" aria-label="Avance del recorrido">
       <summary><span>{received} de {rooms.length} recibidos</span><ChevronDown size={22} aria-hidden="true"/></summary>
@@ -51,7 +52,7 @@ export function SpaceOverview({filters,onFiltersChange,rooms, media, event, pend
         <button type="button" className="text-button overview-backup" onClick={onBackup}><CloudUpload size={17}/>{pending ? `${pending} pendientes de respaldo` : 'Sin pendientes de respaldo'}<ArrowRight size={16}/></button>
       </div>
     </details>
-    {rooms.length === 0 ? <section className="onboarding"><span className="big-index">01</span><div><h2>Arma la lista de espacios</h2><p>Salas, baños, biblioteca, patios y gimnasio. Puedes cambiar sus nombres y añadir otros cuando lo necesites.</p><div className="actions"><button className="button primary" disabled={busy} onClick={onBulk}>Crear 18 salas<ArrowRight size={18}/></button><button className="button secondary" onClick={onAdd}>Añadir una por una</button></div></div></section> : <>
+    {rooms.length === 0 && readOnly?<p className="empty-state">El equipo todavía no ha añadido espacios.</p>:rooms.length === 0 ? <section className="onboarding"><span className="big-index">01</span><div><h2>Arma la lista de espacios</h2><p>Salas, baños, biblioteca, patios y gimnasio. Puedes cambiar sus nombres y añadir otros cuando lo necesites.</p><div className="actions"><button className="button primary" disabled={busy} onClick={onBulk}>Crear 18 salas<ArrowRight size={18}/></button><button className="button secondary" onClick={onAdd}>Añadir una por una</button></div></div></section> : <>
       <div className="overview-search-toolbar"><label className="search-field"><Search size={20}/><input aria-label="Buscar espacio" placeholder="Buscar espacio" value={search} onChange={e => setSearch(e.target.value)}/></label><button type="button" className="button secondary overview-filter-toggle" aria-expanded={filtersOpen} aria-controls="overview-filter-panel" onClick={()=>setFiltersOpen(value=>!value)}><SlidersHorizontal size={19}/>Filtros{activeFilterCount>0&&<span className="filter-count" aria-label={`${activeFilterCount} filtros activos`}>{activeFilterCount}</span>}</button></div>
       <div id="overview-filter-panel" className="overview-filter-panel" hidden={!filtersOpen}><label className="filter-field"><span>Recinto</span><Select value={site} onValueChange={setSite}><SelectTrigger className="choice" aria-label="Recinto"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all">Todos los recintos</SelectItem>{Array.from(new Set(rooms.map(r => r.site))).map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select></label><div className="space-filters" role="group" aria-label="Filtrar espacios por estado">{filterOptions.map(f => <button key={f.id} type="button" aria-pressed={filter === f.id} onClick={() => setFilter(f.id)}>{f.label}<span>{f.count}</span></button>)}</div>{activeFilterCount>0&&<button type="button" className="text-button" onClick={resetFilters}>Quitar filtros</button>}</div>
       <div className="room-grid">{visible.map(r => {

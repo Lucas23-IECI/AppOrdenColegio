@@ -1,3 +1,4 @@
+import {canWrite} from './permissions';
 import {uploadThumbnail} from './media-tools';
 import {uploadMultipart,type MultipartInit} from './multipart-upload';
 import {getSupabase} from './supabase';
@@ -10,6 +11,8 @@ let syncing:Promise<void>|null=null;
 export function syncAll(notify:()=>void,status:(value:string)=>void,onBootstrap?:(value:Bootstrap)=>void):Promise<void>{if(syncing)return syncing;syncing=performSync(notify,status,onBootstrap).finally(()=>{syncing=null;});return syncing;}
 async function performSync(notify:()=>void,status:(value:string)=>void,onBootstrap?:(value:Bootstrap)=>void){
  if(!navigator.onLine){status('Sin conexión · guardado en este teléfono');return;}
+ const permissions=await api<Bootstrap>('bootstrap');onBootstrap?.(permissions);
+ if(!canWrite(permissions.user)){await mergeServer(permissions.rooms,permissions.media);await setMeta('event',permissions.event);await setMeta('lastSync',new Date().toISOString());notify();status('Solo lectura · registros actualizados');return;}
  status('Respaldando registros…');
  for(const original of await allRooms()){
   if(!original.dirty||original.conflict)continue;

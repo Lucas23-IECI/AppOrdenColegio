@@ -8,7 +8,11 @@ export async function applySchema(){
  try{
   await client.query('begin');await client.query('select pg_advisory_xact_lock(71927262)');
   await client.query('create table if not exists oc_migrations (id text primary key, applied_at timestamptz not null default now())');
-  const exists=await client.query("select 1 from oc_migrations where id='neon-v1'");if(exists.rowCount){await client.query('commit');return;}
+  const exists=await client.query("select 1 from oc_migrations where id='neon-v1'");if(exists.rowCount){
+   const access=await client.query("select 1 from oc_migrations where id='neon-access-v2'");
+   if(!access.rowCount){await client.query(readFileSync('supabase/migrations/202610070008_access_roles.sql','utf8'));await client.query("insert into oc_migrations(id) values('neon-access-v2')");}
+   await client.query('commit');return;
+  }
   const authMigration=await getMigrations(authOptions());let authSql=await authMigration.compileMigrations();
   // UUIDs are essential: existing offline databases are keyed by the user UUID.
   authSql=authSql.replace(/"id" text/g,'"id" uuid').replace(/"userId" text/g,'"userId" uuid');
@@ -29,7 +33,7 @@ export async function applySchema(){
    create trigger oc_join_account after insert on oc_auth_user for each row execute function oc_join_account();
    revoke all on all tables in schema public from public;
    revoke all on all functions in schema public from public;
-   insert into oc_migrations(id) values('neon-v1');
+   insert into oc_migrations(id) values('neon-v1'),('neon-access-v2');
   `);
   await client.query('commit');mkdirSync('work/migration',{recursive:true});writeFileSync('work/migration/auth-schema.sql',authSql);
  }catch(error){await client.query('rollback');throw error;}finally{client.release();}

@@ -4,6 +4,7 @@ import {z} from 'zod';
 import {DEFAULT_EVENT,MEDIA_TYPE,type User,type Room,type Media} from '../lib/model.js';
 import {roomSchema} from '../lib/validation.js';
 import {repository} from './neon/database.js';
+import {reopenChangedInspection} from '../lib/inspection.js';
 import {accountAction,accountSession} from './neon/auth.js';
 import {beginUpload,finishUpload,signPart,signedFile,objectInfo,putThumbnail,StorageError} from './neon/storage.js';
 const usesNeon=()=>process.env.BACKEND_PROVIDER==='neon';
@@ -20,7 +21,7 @@ function check(result:{error:unknown}){if(result.error){console.error('Event rep
 const hash=(s:string)=>createHash('sha256').update(s).digest('hex');
 const maxFileBytes=50*1024*1024;
 async function identity(request:Request):Promise<User>{
- if(usesNeon()){const session=await accountSession(request);if(!session)throw new ApiError('Ingresa para abrir el registro.',401);const member=await admin().from('oc_members').select('id,email,name,role').eq('id',session.user.id).eq('disabled',false).maybeSingle();check(member);if(!member.data)throw new ApiError('Tu usuario no tiene acceso a este evento.',403);return member.data as User;}
+ if(usesNeon()){const session=await accountSession(request);if(!session)throw new ApiError('Ingresa para abrir el registro.',401);const member=await admin().from('oc_members').select('id,email,name,role,primary_admin').eq('id',session.user.id).eq('disabled',false).maybeSingle();check(member);if(!member.data)throw new ApiError('Tu usuario no tiene acceso a este evento.',403);return member.data as User;}
  const token=request.headers.get('authorization')?.replace(/^Bearer /i,'');if(!token)throw new ApiError('Ingresa para abrir el registro.',401);const auth=await admin().auth.getUser(token);if(auth.error||!auth.data.user)throw new ApiError('Tu sesión venció. Vuelve a ingresar.',401);const member=await admin().from('oc_members').select('id,email,name,role').eq('id',auth.data.user.id).eq('disabled',false).maybeSingle();check(member);if(!member.data)throw new ApiError('Tu usuario no tiene acceso a este evento.',403);return member.data as User;}
 function coordinator(user:User){if(user.role!=='coordinator'&&user.role!=='admin')throw new ApiError('Esta acción corresponde al coordinador o administrador.',403);}
 function administrator(user:User){if(user.role!=='admin')throw new ApiError('Solo un administrador puede gestionar el equipo.',403);}
@@ -28,7 +29,7 @@ async function asset(id:string){const r=await admin().from('oc_media').select('*
 async function rows(table:string,selection='*'){const list:Record<string,any>[]=[];for(let offset=0;;offset+=1000){const result=await admin().from(table).select(selection).range(offset,offset+999);check(result);list.push(...result.data??[]);if(!result.data||result.data.length<1000)return list;}}
 const account=z.object({name:z.string().trim().min(2).max(100),email:z.string().trim().email().toLowerCase(),password:z.string().min(12).max(200)});
 async function authRoute(request:Request,path:string[]){const action=path[1];if(usesNeon()&&['register','login','logout'].includes(action)){if(request.method!=='POST')throw new ApiError('Método no permitido.',405);if(action==='register'){const input=account.parse(await request.clone().json());return accountAction(new Request(request.url,{method:'POST',headers:request.headers,body:JSON.stringify(input)}),action);}return accountAction(request,action);}if(action==='status'&&request.method==='GET'){const result=await admin().from('oc_members').select('id',{count:'exact',head:true}).in('role',['admin','coordinator']);check(result);return {needsSetup:!result.count};}
- if(action==='team'&&request.method==='GET'){const user=await identity(request);administrator(user);return {team:await rows('oc_members','id,email,name,role,disabled')};}
+ if(action==='team'&&request.method==='GET'){const user=await identity(request);administrator(user);return {team:await rows('oc_members',usesNeon()?'id,email,name,role,disabled,primary_admin':'id,email,name,role,disabled')};}
  if(request.method!=='POST')throw new ApiError('Método no permitido.',405);const body=await request.json();
  if(action==='register'||action==='setup'||action==='join'){if(usesNeon())throw new ApiError('Crea tu cuenta desde el formulario de registro.',410);
   const input=account.extend({setupKey:z.string().optional(),code:z.string().optional()}).parse(body);
@@ -46,10 +47,10 @@ async function authRoute(request:Request,path:string[]){const action=path[1];if(
  if(action==='invites'){const {name}=z.object({name:z.string().trim().min(2).max(100)}).parse(body);const code=randomBytes(24).toString('base64url');const expiresAt=new Date(Date.now()+48*3600000).toISOString();check(await admin().from('oc_invites').insert({code_hash:hash(code),name,expires_at:expiresAt}));return {code,expiresAt,name};}
  if(action==='member'||action==='revoke'){
   administrator(user);
-  const input=z.object({userId:z.string().uuid(),role:z.enum(['admin','coordinator','recorder']).optional(),disabled:z.boolean().optional()}).parse(body);
+  const input=z.object({userId:z.string().uuid(),role:z.enum(['admin','coordinator','recorder','viewer']).optional(),disabled:z.boolean().optional()}).parse(body);
   if(action==='member'&&input.role===undefined&&input.disabled===undefined)throw new ApiError('Elige el cambio de permisos.');
   const result=await admin().rpc('oc_manage_member',{p_actor:user.id,p_target:input.userId,p_role:action==='member'?input.role??null:null,p_disabled:action==='revoke'?true:input.disabled??null});
-  if(result.error){const known=['Debe quedar al menos un administrador activo','No se encontró la cuenta','Solo un administrador puede gestionar el equipo'];throw new ApiError(known.includes(result.error.message)?result.error.message:'No se pudieron cambiar los permisos.',result.error.code==='42501'?403:409);}
+  if(result.error){const known=['El administrador principal no se puede desactivar ni cambiar de rol','Debe quedar al menos un administrador activo','No se encontró la cuenta','Solo un administrador puede gestionar el equipo'];throw new ApiError(known.includes(result.error.message)?result.error.message:'No se pudieron cambiar los permisos.',result.error.code==='42501'?403:409);}
   return {ok:true};
  }
  throw new ApiError('Acción no encontrada.',404);
@@ -59,8 +60,9 @@ async function dispatch(request:Request){const url=new URL(request.url);const ro
  if(request.method!=='GET'&&request.headers.get('sec-fetch-site')==='cross-site')throw new ApiError('Origen no permitido.',403);
  if(path[0]==='auth')return authRoute(request,path);
  const user=await identity(request);
+ if(request.method!=='GET'&&user.role==='viewer')throw new ApiError('Tu acceso es de solo lectura. Un administrador puede darte permiso para editar.',403);
  if(request.method==='GET'){
-  if(path[0]==='bootstrap'){const [rooms,media,team,event]=await Promise.all([rows('oc_rooms','data'),rows('oc_media','data,status,owner_id'),admin().from('oc_members').select('id,name,email,role').eq('disabled',false),admin().from('oc_settings').select('value').eq('key','event').maybeSingle()]);check(team);check(event);return {user,rooms:rooms.map(r=>r.data),media:media.filter(r=>r.status==='ready').map(r=>({...r.data,status:'ready',ownerId:r.owner_id})),team:team.data,event:event.data?.value??DEFAULT_EVENT,limits:{maxFileBytes}};}
+  if(path[0]==='bootstrap'){const [rooms,media,team,event]=await Promise.all([rows('oc_rooms','data'),rows('oc_media','data,status,owner_id'),admin().from('oc_members').select(usesNeon()?'id,name,email,role,primary_admin':'id,name,email,role').eq('disabled',false),admin().from('oc_settings').select('value').eq('key','event').maybeSingle()]);check(team);check(event);return {user,rooms:rooms.map(r=>r.data),media:media.filter(r=>r.status==='ready').map(r=>({...r.data,status:'ready',ownerId:r.owner_id})),team:team.data,event:event.data?.value??DEFAULT_EVENT,limits:{maxFileBytes}};}
   if(path[0]==='audit'){
    coordinator(user);const input=z.object({before:z.string().regex(/^\d+$/).optional(),category:z.enum(['spaces','files','team','event','reports']).optional(),search:z.string().max(120).optional(),from:z.string().datetime().optional(),to:z.string().datetime().optional()}).parse(Object.fromEntries(url.searchParams));
    let query=admin().from('oc_audit').select('*').order('id',{ascending:false}).limit(51);
@@ -74,7 +76,7 @@ async function dispatch(request:Request){const url=new URL(request.url);const ro
  if(request.method!=='POST')throw new ApiError('Método no permitido.',405);
  const body=await request.json();
  if(path[0]==='rooms'){
-  const input=roomSchema.parse(body);const existing=await admin().from('oc_rooms').select('data').eq('id',input.id).maybeSingle();check(existing);if(existing.data?.data.archived!==undefined&&existing.data.data.archived!==input.archived)coordinator(user);
+  let input=roomSchema.parse(body);const existing=await admin().from('oc_rooms').select('data').eq('id',input.id).maybeSingle();check(existing);if(existing.data?.data.archived!==undefined&&existing.data.data.archived!==input.archived)coordinator(user);if(existing.data)input=reopenChangedInspection(existing.data.data,input);
   for(const stage of ['reception','return'] as const){if(input[stage].confirmedAt){if(input.items.some(i=>i[stage]===null)||Object.values(input[stage].checks).some(v=>v==='pending')||(Object.values(input[stage].checks).includes('issue')&&!input[stage].notes.trim()))throw new ApiError('Completa cantidades y revisión antes de confirmar.');if(stage==='return'&&!input.reception.confirmedAt)throw new ApiError('Confirma primero la recepción.');}}
   const r=await admin().rpc('oc_save_room_audited',{p_input:input,p_actor:user.id});check(r);if(r.data.conflict)return Response.json({error:'El espacio cambió en otro dispositivo.',conflict:r.data.conflict},{status:409});return r.data;
  }
