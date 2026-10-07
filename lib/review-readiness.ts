@@ -3,7 +3,7 @@ import {mediaPending} from './media-state';
 
 export type ReviewSection = 'inventory'|'condition'|'evidence'|'reception'|'conflict';
 export type ReviewRequirement = {
- id:'quantities'|'checks'|'notes'|'evidence'|'reception'|'conflict';
+ id:'quantities'|'checks'|'notes'|'reception'|'conflict';
  section:ReviewSection;
  label:string;
  count:number;
@@ -25,7 +25,6 @@ export function reviewReadiness(room:LocalRoom,phase:Phase,media:Media[]){
  if(pendingChecks.length)requirements.push({id:'checks',section:'condition',label:`Revisar ${pendingChecks.length} ${pendingChecks.length===1?'estado':'estados'} del espacio`,count:pendingChecks.length});
  if(issueWithoutNotes)requirements.push({id:'notes',section:'condition',label:'Describir las observaciones',count:1});
  if(receptionNeeded)requirements.push({id:'reception',section:'reception',label:'Confirmar primero la recepción',count:1});
- if(missingEvidence)requirements.push({id:'evidence',section:'evidence',label:'Añadir una foto o un video',count:1});
  return {
   missingQuantities,pendingChecks,issueWithoutNotes,missingEvidence,receptionNeeded,conflict,
   requirements,remainingSteps:requirements.length,ready:requirements.length===0,

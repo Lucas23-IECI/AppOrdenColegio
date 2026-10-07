@@ -12,14 +12,18 @@ function completeRoom():LocalRoom {
 }
 const evidence=(room:LocalRoom,patch:Partial<Media>={}):Media=>({id:'foto',roomId:room.id,phase:'reception',name:'Foto',mime:'image/jpeg',size:1,createdAt:'2026-09-28T00:00:00Z',author:'Encargado',note:'',category:'General',status:'ready',...patch});
 
-test('new inspection points to the three missing sections and accepts counted zero',()=>{
+test('new inspection requires quantities and condition, with optional evidence and counted zero',()=>{
  const room=newRoom('Sala de prueba'),result=reviewReadiness(room,'reception',[]);
- assert.deepEqual(result.requirements.map(step=>step.section),['inventory','condition','evidence']);
+ assert.deepEqual(result.requirements.map(step=>step.section),['inventory','condition']);
  assert.equal(result.missingQuantities.length,2);
  assert.equal(result.pendingChecks.length,5);
- assert.equal(result.remainingSteps,3);
+ assert.equal(result.remainingSteps,2);
  assert.equal(result.ready,false);
  const complete=completeRoom();
+ const withoutEvidence=reviewReadiness(complete,'reception',[]);
+ assert.equal(withoutEvidence.ready,true);
+ assert.equal(withoutEvidence.missingEvidence,true);
+ assert.equal(withoutEvidence.remainingSteps,0);
  assert.equal(reviewReadiness(complete,'reception',[evidence(complete)]).ready,true);
 });
 
@@ -39,6 +43,16 @@ test('evidence must belong to the current space and phase and remain outside the
  const files=[evidence(room,{roomId:'other'}),evidence(room,{phase:'return'}),evidence(room,{deleted:true})];
  assert.equal(reviewReadiness(room,'reception',files).missingEvidence,true);
  assert.equal(reviewReadiness(room,'reception',files).evidenceCount,0);
+ assert.equal(reviewReadiness(room,'reception',files).ready,true,'Unrelated or removed evidence cannot block confirmation');
+});
+
+test('return can be confirmed without evidence after reception and checks are complete',()=>{
+ const room=completeRoom();
+ room.reception.confirmedAt='2026-10-07T00:00:00Z';
+ const result=reviewReadiness(room,'return',[]);
+ assert.equal(result.ready,true);
+ assert.equal(result.missingEvidence,true);
+ assert.equal(result.evidenceCount,0);
 });
 
 test('offline or failed backup is visible but does not block a complete inspection',()=>{

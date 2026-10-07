@@ -10,7 +10,7 @@ export type User = { id: string; name: string; email: string; role: 'admin' | 'c
 export type TeamMember = User & { disabled: boolean };
 export const ROLE_LABELS: Record<User['role'], string> = {admin:'Administrador',viewer:'Solo lectura',coordinator:'Coordinador',recorder:'Encargado'};
 export type EventInfo = { name: string; institution: string; location: string; coordinator: string };
-export const DEFAULT_EVENT: EventInfo = { name: 'Encuentro de ciclistas', institution: 'Iglesia de Dios Pentecostal', location: 'Hualqui', coordinator: '' };
+export const DEFAULT_EVENT: EventInfo = { name: 'Confraternidad de voluntarios y ciclistas', institution: 'Iglesia de Dios Pentecostal', location: 'Hualqui', coordinator: '' };
 export const TYPES = ['Sala','Baño','Biblioteca','Patio','Estacionamiento','Gimnasio','Cocina','Otro'];
 export const CHECKS = ['Limpieza','Puertas y ventanas','Piso y muros','Instalaciones','Distribución original'];
 export const newInspection = (): Inspection => ({ notes: '', checks: Object.fromEntries(CHECKS.map(k=>[k,'pending'])), confirmedAt:null, confirmedBy:null });
