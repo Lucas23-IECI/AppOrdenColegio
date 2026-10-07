@@ -2,7 +2,7 @@
 
 Aplicación para recibir y devolver salas y otros espacios del evento en Hualqui. Inventario, estado, fotos y videos organizados por espacio y por recepción/devolución.
 
-**Aplicación en [app-orden-colegio.vercel.app](https://app-orden-colegio.vercel.app).** Vercel sirve la aplicación y su API. Esta versión prepara Neon Free para usuarios, registros y archivos privados; su activación requiere configurar el entorno de Vercel. El acceso funciona con el correo y contraseña del evento, independientemente de la cuenta usada para programar.
+**Aplicación en [app-orden-colegio.vercel.app](https://app-orden-colegio.vercel.app).** Vercel sirve la aplicación y su API; Neon Free guarda usuarios, registros y archivos privados. La migración se publicó y verificó el 7 de octubre de 2026. El acceso funciona con el correo y contraseña del evento, independientemente de la cuenta usada para programar.
 
 ## Uso
 
@@ -83,7 +83,7 @@ npm run build
 
 ## Infraestructura
 
-La app conserva Vercel `app-orden-colegio` y tiene preparado Neon Free `calm-brook-14164647`, región Ohio, PostgreSQL 18 y el bucket privado `evidence`. No requiere contratar un plan de pago. La activación depende de configurar las variables de Neon en Vercel y publicar esta versión. El backend Supabase anterior se conserva para una reversión explícita mediante las dos variables de proveedor.
+La app usa Vercel `app-orden-colegio` y Neon Free `calm-brook-14164647`, región Ohio, PostgreSQL 18 y el bucket privado `evidence`. Las variables de producción están configuradas en Vercel: claves privadas como Secret y `VITE_BACKEND_PROVIDER=neon` como Config. No se contrató un plan de pago. El backend Supabase anterior se conserva para una reversión explícita mediante las dos variables de proveedor; esa reversión necesita revisar los cambios posteriores a la migración y que Supabase esté disponible.
 
 1. Completar las variables de `.env.example`. `DATABASE_URL`, `BETTER_AUTH_SECRET` y las claves S3 son exclusivamente del servidor. En producción usar `APP_ORIGIN=https://app-orden-colegio.vercel.app`.
 2. Aplicar el esquema con `node --env-file=.env.local --import=tsx scripts/neon-schema.ts`. Las migraciones conservan los procedimientos de inventario, auditoría, permisos y conflictos; no exponen una API de base de datos al navegador.
@@ -97,6 +97,8 @@ Neon Free incluye cuotas: no es almacenamiento ilimitado. Esta instalación rese
 La copia de Supabase se descargó antes de migrar. `scripts/backup-data.ts` interpreta únicamente bloques COPY de tablas permitidas: nunca ejecuta el SQL completo del respaldo. `scripts/migrate-neon.ts` exige un destino vacío, importa en una transacción, conserva el historial y verifica SHA-256 de cada original y miniatura. `scripts/verify-neon.ts` compara el contenido completo de las ocho tablas y los identificadores/hashes de cuentas. Respaldos, manifestaciones y credenciales permanecen en `work/migration` y archivos `.env.*.local` ignorados por Git.
 
 ## Verificación de Neon
+
+La comprobación pública del 7 de octubre verificó registro, ingreso, cierre de sesión, rechazo de acceso anónimo, 19 espacios y los cinco originales migrados (tres fotos y dos videos). Cada original coincidió en tamaño y SHA-256 con el respaldo. Los cinco objetos rechazaron descarga sin firma; los dos videos respondieron a rangos HTTP. En Brave se abrió un video de 1080 × 1920 con duración de 5,23 segundos y sin error. Esto no sustituye una prueba en Android o iPhone reales.
 
 La prueba `tests/integration/neon.test.ts` exige una base local vacía llamada `orden_neon_tests`. Comprueba registro concurrente, contraseñas bcrypt heredadas, sesión, cierre de sesión, administrador único, permisos, revocación inmediata, idempotencia y conflictos. No ejecutarla en producción.
 
