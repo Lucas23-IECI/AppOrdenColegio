@@ -1,6 +1,6 @@
 import {canCoordinate} from '../lib/permissions';
 import {useEffect,useState} from 'react';
-import {Building2,Images,FileText,CloudUpload,Settings2,History,Menu,ChevronRight} from 'lucide-react';
+import {Building2,Images,FileText,CloudUpload,Settings2,History,Menu,ChevronRight,Tags} from 'lucide-react';
 import {TabsList,TabsTrigger} from '@/components/ui/tabs';
 import type {Page} from '../lib/navigation';
 import type {User} from '../lib/model';
@@ -9,6 +9,7 @@ const destinations=[
  {page:'spaces',label:'Espacios',icon:Building2},
  {page:'media',label:'Archivos',icon:Images},
  {page:'reports',label:'Informes',icon:FileText,description:'Preparar el documento para el colegio'},
+ {page:'labels',label:'Etiquetas',icon:Tags,description:'Imprimir papeles para sillas, mesas y otros elementos'},
  {page:'backup',label:'Respaldo',icon:CloudUpload,description:'Revisar archivos pendientes y uso sin señal'},
  {page:'settings',label:'Ajustes',icon:Settings2,description:'Apariencia, equipo y datos del evento'},
  {page:'audit',label:'Auditoría',icon:History,description:'Consultar quién cambió cada registro'},

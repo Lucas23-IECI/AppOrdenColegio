@@ -1,6 +1,6 @@
 import type {Phase} from './model';
 
-export const PAGE_PATHS = {spaces:'espacios',media:'archivos',reports:'informes',backup:'respaldo',settings:'ajustes',audit:'auditoria',more:'mas'} as const;
+export const PAGE_PATHS = {spaces:'espacios',media:'archivos',reports:'informes',labels:'etiquetas',backup:'respaldo',settings:'ajustes',audit:'auditoria',more:'mas'} as const;
 export type Page = keyof typeof PAGE_PATHS;
 export type Overlay = {kind:'viewer'|'editor'|'history'|'comparison'; id:string; tool?:'photo'|'details'};
 export type RoomSection='evidence'|'inventory'|'condition';
@@ -16,7 +16,7 @@ export function parseRoute(hash:string):AppRoute {
   const params=new URLSearchParams(query);
   const roomId=(page==='spaces'||page==='media')&&validId(id)?id:null;
   const scope=params.get('espacio');
-  const route:AppRoute={page,roomId,phase:roomId&&phase==='devolucion'?'return':'reception',reportScope:page==='reports'&&validId(scope)?scope:'all',overlay:null};
+  const route:AppRoute={page,roomId,phase:roomId&&phase==='devolucion'?'return':'reception',reportScope:(page==='reports'||page==='labels')&&validId(scope)?scope:'all',overlay:null};
   if(page==='spaces'&&roomId){const view=params.get('vista');if(view==='inventario')route.section='inventory';if(view==='revision')route.section='condition';}
   for(const [key,kind] of [['visor','viewer'],['editar','editor'],['historial','history'],['comparar','comparison']] as const){
     const value=params.get(key);
@@ -29,7 +29,7 @@ export function routeHash(route:AppRoute):string {
   let path='#/'+PAGE_PATHS[route.page];
   if((route.page==='spaces'||route.page==='media')&&route.roomId)path+='/'+encodeURIComponent(route.roomId)+'/'+(route.phase==='return'?'devolucion':'recepcion');
   const params=new URLSearchParams();
-  if(route.page==='reports'&&route.reportScope!=='all')params.set('espacio',route.reportScope);
+  if((route.page==='reports'||route.page==='labels')&&route.reportScope!=='all')params.set('espacio',route.reportScope);
   if(route.page==='spaces'&&route.roomId&&route.section&&route.section!=='evidence')params.set('vista',route.section==='inventory'?'inventario':'revision');
   if(route.overlay)params.set({viewer:'visor',editor:'editar',history:'historial',comparison:'comparar'}[route.overlay.kind],route.overlay.id);
   if(route.overlay?.kind==='viewer'&&route.overlay.tool)params.set('herramienta',route.overlay.tool);
@@ -38,6 +38,7 @@ export function routeHash(route:AppRoute):string {
 
 export function parentRoute(route:AppRoute):AppRoute {
   if(route.overlay)return {...route,overlay:null};
+  if(route.page==='labels'&&route.reportScope!=='all')return {...HOME,roomId:route.reportScope};
   if(route.page==='media'&&route.roomId)return {...HOME,page:'media'};
   return {...HOME};
 }

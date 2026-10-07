@@ -8,7 +8,7 @@ import {handleRequest} from '../../server/cloud.js';
 import {newRoom} from '../../lib/model.js';
 
 test('Neon local: registration, legacy passwords, permissions, conflicts and sessions', {timeout:90000},async()=>{
- const target=new URL(process.env.DATABASE_URL!);assert.equal(target.hostname,'127.0.0.1');assert.equal(target.pathname,'/orden_neon_tests','Dedicated disposable local QA database required');assert.equal(process.env.BACKEND_PROVIDER,'neon');
+ const target=new URL(process.env.DATABASE_URL!);assert.equal(target.hostname,'127.0.0.1');assert.ok(['/orden_neon_tests','/orden_label_tests'].includes(target.pathname),'Dedicated disposable local QA database required');assert.equal(process.env.BACKEND_PROVIDER,'neon');
  await applySchema();const db=database();assert.equal((await db.query('select count(*)::int as n from oc_auth_user')).rows[0].n,0,'Use an empty QA database');
  const prefix=randomUUID(),password='Una-clave-de-prueba-'+randomUUID();
  async function call(path:string,cookie='',body?:unknown,origin='http://127.0.0.1:5173'){
@@ -33,8 +33,10 @@ test('Neon local: registration, legacy passwords, permissions, conflicts and ses
   const changes=await Promise.all(['A','B'].map(name=>call('rooms',owner.cookie,{...saved.data.room,name,mutationId:randomUUID()})));assert.deepEqual(changes.map(r=>r.status).sort(),[200,409]);assert.equal((await call('history/'+initial.id,owner.cookie)).data.history.length,2);
   assert.equal((await call('history/'+initial.id,recorder.cookie)).status,200,'Viewer can read history');
   const corrected={...newRoom('Sala confirmada'),mutationId:randomUUID()};corrected.items=corrected.items.map(i=>({...i,reception:30,return:30}));corrected.reception={checks:Object.fromEntries(Object.keys(corrected.reception.checks).map(k=>[k,'ok'])),notes:'Recepción original',confirmedAt:new Date().toISOString(),confirmedBy:'Test'};corrected.return={...corrected.reception,notes:'Devolución original'};
-  const received=await call('rooms',owner.cookie,corrected);assert.equal(received.status,200);
-  const correction=await call('rooms',owner.cookie,{...received.data.room,items:received.data.room.items.map((i:any,index:number)=>({...i,reception:index===0?31:i.reception})),mutationId:randomUUID()});assert.equal(correction.status,200);assert.equal(correction.data.room.reception.confirmedAt,null);assert.equal(correction.data.room.return.confirmedAt,null);assert.equal(correction.data.room.return.notes,'Devolución original');assert.equal(correction.data.room.items[0].return,30);assert.equal((await call('history/'+corrected.id,owner.cookie)).data.history.length,2,'Original and correction retained');
+  let received=await call('rooms',owner.cookie,corrected);assert.equal(received.status,200);
+  received=await call('rooms',owner.cookie,{...received.data.room,labelText:'Sala de biblioteca RAE',mutationId:randomUUID()});assert.equal(received.status,200);assert.equal(received.data.room.labelText,'Sala de biblioteca RAE');assert.equal(received.data.room.reception.confirmedAt,corrected.reception.confirmedAt,'Changing a label cannot invalidate inspection');
+  assert.equal((await call('bootstrap',recorder.cookie)).data.rooms.find((r:any)=>r.id===corrected.id).labelText,'Sala de biblioteca RAE','Label text is shared with another session');
+  const correction=await call('rooms',owner.cookie,{...received.data.room,items:received.data.room.items.map((i:any,index:number)=>({...i,reception:index===0?31:i.reception})),mutationId:randomUUID()});assert.equal(correction.status,200);assert.equal(correction.data.room.reception.confirmedAt,null);assert.equal(correction.data.room.return.confirmedAt,null);assert.equal(correction.data.room.return.notes,'Devolución original');assert.equal(correction.data.room.items[0].return,30);assert.equal((await call('history/'+corrected.id,owner.cookie)).data.history.length,3,'Original, label edit and correction retained');
   assert.equal((await call('reports',recorder.cookie)).status,200,'Viewer can read reports');
   assert.equal((await call('auth/member',owner.cookie,{userId:recorderId,role:'admin'})).status,200);
   assert.equal((await call('auth/member',recorder.cookie,{userId:ownerId,disabled:true})).status,409,'Secondary admin cannot disable principal');

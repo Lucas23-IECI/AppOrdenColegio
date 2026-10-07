@@ -6,6 +6,8 @@ Aplicación para recibir y devolver salas y otros espacios del evento en Hualqui
 
 ## Uso
 
+**Etiquetas:** entra desde Etiquetas (Más en celular) o desde **Opciones → Imprimir etiquetas** dentro de una sala. Selecciona uno o varios espacios, modifica las cantidades para esta impresión y elige Pequeña (45 × 20 mm, predeterminada) o Mediana (65 × 30 mm). El texto personalizado se guarda con el espacio y conserva la revisión confirmada. Se pueden añadir el elemento, numeración continua por espacio y bordes de recorte. PDF e impresión usan hojas A4 o Carta; imprime al 100 % o en tamaño real. Las cantidades de impresión no modifican el inventario. Las preferencias de tamaño y cantidades se guardan en este dispositivo; una cuenta de solo lectura puede imprimir pero no cambiar el texto compartido.
+
 Cada encargado puede abrir la aplicación y pulsar **Crear cuenta** con nombre, correo y contraseña. No necesita clave de instalación ni invitación. Las cuentas nuevas comparten el evento y entran con Solo lectura; un administrador les da permiso para editar. La primera cuenta de una instalación vacía es administradora principal. Las cuentas existentes conservan su acceso.
 
 1. Crear 18 salas con un botón, o añadir espacios individualmente. Editar nombre, tipo, recinto, sector y encargado; archivar y restaurar sin borrar registros.

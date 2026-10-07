@@ -1,6 +1,13 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {HOME,parseRoute,routeHash,parentRoute,type AppRoute} from '../lib/navigation';
+test('etiquetas conserva el espacio y Atrás vuelve a su sala',()=>{
+ const labels:AppRoute={...HOME,page:'labels',reportScope:'sala-1'};
+ assert.deepEqual(parseRoute(routeHash(labels)),labels);
+ assert.equal(routeHash(labels),'#/etiquetas?espacio=sala-1');
+ assert.deepEqual(parentRoute(labels),{...HOME,roomId:'sala-1'});
+ assert.deepEqual(parseRoute('#/etiquetas'),{...HOME,page:'labels'});
+});
 
 test('los enlaces conservan pantalla, fase y visor al recargar o avanzar',()=>{
   const room:AppRoute={...HOME,roomId:'sala-1',phase:'return'};
