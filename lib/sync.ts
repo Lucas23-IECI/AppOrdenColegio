@@ -1,5 +1,6 @@
 import {uploadThumbnail} from './media-tools';
-import {supabase} from './supabase';
+import {uploadMultipart,type MultipartInit} from './multipart-upload';
+import {getSupabase} from './supabase';
 import {allRooms,allMedia,getRoomLocal,putRoom,putMedia,patchMedia,fileBlob,acceptSync,mergeServer,setMeta,type Bootstrap} from './local-store';
 import {plainRoom,type LocalRoom,type Media} from './model';
 import {api,HttpError} from './http';
@@ -29,11 +30,14 @@ async function performSync(notify:()=>void,status:(value:string)=>void,onBootstr
 }
 async function uploadMedia(item:Media,notify:()=>void,status:(s:string)=>void){
  const blob=await fileBlob(item.id);if(!blob)throw new Error('El original está en el teléfono que lo registró.');
- const init=await api<{ready?:boolean,token:string,endpoint:string,bucket:string,objectPath:string}>('uploads/init',{id:item.id,roomId:item.roomId,phase:item.phase,name:item.name,mime:item.mime,size:item.size,createdAt:item.createdAt,note:item.note,category:item.category,duration:item.duration,derivedFrom:item.derivedFrom});
+ const init=await api<{ready?:boolean,protocol?:string,partSize?:number,parts?:MultipartInit['parts'],token:string,endpoint:string,bucket:string,objectPath:string}>('uploads/init',{id:item.id,roomId:item.roomId,phase:item.phase,name:item.name,mime:item.mime,size:item.size,createdAt:item.createdAt,note:item.note,category:item.category,duration:item.duration,derivedFrom:item.derivedFrom});
  if(!init.ready){
-  await patchMedia(item.id,{status:'uploading',error:undefined});notify();const {Upload}=await import('tus-js-client');const {data:{session}}=await supabase.auth.getSession();if(!session)throw new HttpError('Tu sesión venció.',401);
+  await patchMedia(item.id,{status:'uploading',error:undefined});notify();
+  if(init.protocol==='s3-multipart'){await uploadMultipart(item.id,blob,init as MultipartInit,(sent,total)=>{const progress=Math.round(sent/total*100);status('Subiendo '+item.name+' · '+progress+'%');void patchMedia(item.id,{progress,status:'uploading'}).then(notify);});}
+  else{const {Upload}=await import('tus-js-client');const {data:{session}}=await getSupabase().auth.getSession();if(!session)throw new HttpError('Tu sesión venció.',401);
   await new Promise<void>((resolve,reject)=>{const upload=new Upload(blob,{endpoint:init.endpoint,headers:{authorization:'Bearer '+session.access_token},chunkSize:6*1024*1024,retryDelays:[0,1500,3000,5000],uploadDataDuringCreation:true,removeFingerprintOnSuccess:true,fingerprint:async()=>['orden',init.bucket,init.objectPath,item.size].join(':'),metadata:{bucketName:init.bucket,objectName:init.objectPath,contentType:item.mime,cacheControl:'3600'},onError:reject,onProgress:(sent,total)=>{const progress=Math.round(sent/total*100);status('Subiendo '+item.name+' · '+progress+'%');void patchMedia(item.id,{progress,status:'uploading'}).then(notify);},onSuccess:()=>resolve()});upload.findPreviousUploads().then(previous=>{if(previous.length)upload.resumeFromPreviousUpload(previous[0]);upload.start();}).catch(reject);});
   await api('uploads/'+item.id+'/complete',{});
+  }
  }
  const thumbnail=await fileBlob(item.id+':thumbnail');let thumbnailReady=item.thumbnailReady;
  if(thumbnail&&!thumbnailReady){const data=await new Promise<string>((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(String(r.result).split(',')[1]);r.onerror=()=>reject(r.error);r.readAsDataURL(thumbnail);});try{await api('uploads/'+item.id+'/thumbnail',{base64:data});thumbnailReady=true;}catch{/* El original ya está respaldado; la miniatura se puede regenerar. */}}

@@ -2,7 +2,7 @@
 
 Aplicación para recibir y devolver salas y otros espacios del evento en Hualqui. Inventario, estado, fotos y videos organizados por espacio y por recepción/devolución.
 
-**Publicada en [app-orden-colegio.vercel.app](https://app-orden-colegio.vercel.app).** Vercel sirve la aplicación y su API; Supabase guarda usuarios, registros y archivos privados. El acceso funciona con el correo y contraseña del evento, independientemente de la cuenta usada para programar.
+**Aplicación en [app-orden-colegio.vercel.app](https://app-orden-colegio.vercel.app).** Vercel sirve la aplicación y su API. Esta versión prepara Neon Free para usuarios, registros y archivos privados; su activación requiere configurar el entorno de Vercel. El acceso funciona con el correo y contraseña del evento, independientemente de la cuenta usada para programar.
 
 ## Uso
 
@@ -50,7 +50,7 @@ La comparación visual del PDF comienza desactivada. En **Informes → Imágenes
 ## Archivos y trabajo sin señal
 
 - Cada foto o video se guarda primero en IndexedDB en el teléfono. Se distingue **En este teléfono**, progreso de carga y **Respaldado**.
-- Los originales se suben directamente a Supabase Storage mediante TUS, en bloques de 6 MB; no atraviesan el límite de cuerpo de las funciones de Vercel.
+- Los originales se suben directamente al almacenamiento privado de Neon mediante cargas multipartes, en bloques de 6 MB; no atraviesan el límite de cuerpo de las funciones de Vercel.
 - **Máximo actual: 50 MB por archivo.** Grabar clips cortos. ZIP de hasta 300 MB por exportación; para un registro mayor, exportar por espacio.
 - El navegador debe permanecer abierto para subir. Una interrupción conserva el original local y la carga se retoma al volver a abrir y conectar.
 - Las cantidades, observaciones y nuevas capturas funcionan sin señal después del primer ingreso y la preparación. Los videos grabados en ese dispositivo permanecen locales. Para fotos o videos de otro dispositivo, abrir el visor y pulsar **Guardar para usar sin señal** mientras hay conexión; esperar **Disponible sin señal en este equipo**. Se descarga el original completo y se comprueba su tamaño antes de guardarlo. Sin esa descarga previa, el original remoto requiere conexión.
@@ -63,7 +63,7 @@ Los informes son borradores para revisar y firmar; la confirmación del encargad
 
 ## Desarrollo
 
-Node.js 24. Copiar `.env.example` como `.env.local` y completar las variables de un proyecto Supabase. Nunca guardar claves privadas en Git.
+Node.js 24. Copiar `.env.example` como `.env.local` y completar las variables de Neon PostgreSQL y su almacenamiento privado. Nunca guardar claves privadas en Git.
 
 ```sh
 npm ci
@@ -79,22 +79,28 @@ npm run test:integration
 npm run build
 ```
 
-La prueba de integración requiere las variables de `.env.local`. Crea usuarios, un espacio y un archivo temporales en Supabase, comprueba sus permisos y los elimina en su bloque de limpieza. Sus acciones quedan en auditoría. Usar preferentemente un proyecto de pruebas.
+`test:integration` conserva las pruebas del backend Supabase anterior y requiere su configuración. Las pruebas de Neon se ejecutan por separado contra una base local desechable, como se indica más abajo.
 
 ## Infraestructura
 
-La instalación de este repositorio usa el proyecto Vercel `app-orden-colegio` y Supabase `wxulrvbhyjtfyqkqsehc`, región São Paulo. Las claves están en las variables de entorno de Vercel y archivos locales ignorados por Git.
+La app conserva Vercel `app-orden-colegio` y tiene preparado Neon Free `calm-brook-14164647`, región Ohio, PostgreSQL 18 y el bucket privado `evidence`. No requiere contratar un plan de pago. La activación depende de configurar las variables de Neon en Vercel y publicar esta versión. El backend Supabase anterior se conserva para una reversión explícita mediante las dos variables de proveedor.
 
-Para reproducir el despliegue en otra instalación:
+1. Completar las variables de `.env.example`. `DATABASE_URL`, `BETTER_AUTH_SECRET` y las claves S3 son exclusivamente del servidor. En producción usar `APP_ORIGIN=https://app-orden-colegio.vercel.app`.
+2. Aplicar el esquema con `node --env-file=.env.local --import=tsx scripts/neon-schema.ts`. Las migraciones conservan los procedimientos de inventario, auditoría, permisos y conflictos; no exponen una API de base de datos al navegador.
+3. Configurar CORS del bucket privado para el origen de la app, GET/HEAD/PUT y cabeceras necesarias. Las claves S3 nunca se entregan al navegador. Las URL de archivos y de partes de carga duran 15 minutos.
+4. Registrar la primera cuenta solo en instalaciones vacías: recibe administración de forma atómica. Las siguientes reciben el rol Encargado. En una migración se importan los administradores antes de abrir el registro público.
 
-1. Crear el proyecto Supabase y aplicar las migraciones de `supabase/migrations` mediante `supabase link --project-ref REF` y `supabase db push`.
-2. Configurar en Vercel las variables de `.env.example`. `SUPABASE_SECRET_KEY` solo se usa en el servidor. Las dos variables `VITE_` y la clave publicable son configuración pública, protegida por las reglas de acceso. `INITIAL_SETUP_KEY` es opcional y solo conserva compatibilidad con el antiguo endpoint de instalación.
-3. Desplegar con `vercel --prod`. `vercel.json` configura Vite, la API y el enrutamiento de la PWA. Puede vincularse el repositorio con Vercel para despliegues al publicar cambios.
-4. Crear la primera cuenta desde el formulario público; recibirá el rol de administrador. Compartir el enlace normal de la aplicación con el equipo.
+Better Auth funciona dentro de la API existente de Vercel, con sesiones en cookies HttpOnly y límites de intentos almacenados en PostgreSQL. Cada petición consulta nuevamente el rol y estado del miembro. Las cuentas anteriores conservan UUID, correo y hash bcrypt; las cuentas nuevas usan el hash de Better Auth. Esto mantiene los vínculos con las bases locales de los teléfonos. Tras el cambio de proveedor puede ser necesario ingresar una vez con el mismo correo y contraseña.
 
-Auth verifica los tokens; la API comprueba que el miembro siga activo. Las tablas tienen RLS y solo son accesibles desde el servidor. Storage permite a cada miembro activo subir únicamente la ruta de un archivo previamente registrado a su nombre. El bucket `evidence` es privado; las descargas utilizan enlaces firmados de 15 minutos. Las revisiones se guardan mediante una transacción con control de versión e idempotencia.
+Neon Free incluye cuotas: no es almacenamiento ilimitado. Esta instalación reserva un máximo de 4,8 GB para originales y miniaturas para dejar margen dentro de los 5 GB gratuitos de objetos. La transferencia, la base y el cómputo también tienen límites del proveedor. Si una cuota impide respaldar, la app muestra el error y conserva el original local; no cambia automáticamente a un plan de pago. Al quedar inactiva, la base puede suspender el cómputo y despertar con la siguiente conexión. Esto es distinto de la pausa administrativa de Supabase.
 
-Revisar consumo y cuotas en Supabase/Vercel según el volumen real. Respaldar la base y los objetos del bucket; la exportación ZIP permite conservar una copia de los originales junto al registro y al informe.
+La copia de Supabase se descargó antes de migrar. `scripts/backup-data.ts` interpreta únicamente bloques COPY de tablas permitidas: nunca ejecuta el SQL completo del respaldo. `scripts/migrate-neon.ts` exige un destino vacío, importa en una transacción, conserva el historial y verifica SHA-256 de cada original y miniatura. `scripts/verify-neon.ts` compara el contenido completo de las ocho tablas y los identificadores/hashes de cuentas. Respaldos, manifestaciones y credenciales permanecen en `work/migration` y archivos `.env.*.local` ignorados por Git.
+
+## Verificación de Neon
+
+La prueba `tests/integration/neon.test.ts` exige una base local vacía llamada `orden_neon_tests`. Comprueba registro concurrente, contraseñas bcrypt heredadas, sesión, cierre de sesión, administrador único, permisos, revocación inmediata, idempotencia y conflictos. No ejecutarla en producción.
+
+La prueba de almacenamiento `tests/integration/neon-storage.test.ts` requiere además `RUN_NEON_STORAGE_QA=1` y las credenciales S3. Usa un archivo temporal con un UUID nuevo y una base local; verifica carga mayor a 6 MB, CORS, reanudación, tamaño, hash, descarga privada y rangos para adelantar videos. Elimina únicamente ese objeto temporal al terminar. Las pruebas Supabase se conservan para el backend anterior y requieren su configuración específica.
 
 ## Código
 

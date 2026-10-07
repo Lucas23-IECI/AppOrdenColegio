@@ -3,23 +3,34 @@ import {createHash,randomBytes,timingSafeEqual} from 'node:crypto';
 import {z} from 'zod';
 import {DEFAULT_EVENT,MEDIA_TYPE,type User,type Room,type Media} from '../lib/model.js';
 import {roomSchema} from '../lib/validation.js';
+import {repository} from './neon/database.js';
+import {accountAction,accountSession} from './neon/auth.js';
+import {beginUpload,finishUpload,signPart,signedFile,objectInfo,putThumbnail,StorageError} from './neon/storage.js';
+const usesNeon=()=>process.env.BACKEND_PROVIDER==='neon';
+const neonService={...repository,storage:{from:()=>({
+ info:async(key:string)=>{try{const info=await objectInfo(key);return {data:info?{size:info.ContentLength}:null,error:info?null:new Error('Not found')};}catch(error){return {data:null,error};}},
+ createSignedUrl:async(key:string,_seconds:number,options?:{download:string})=>{try{return {data:{signedUrl:await signedFile(key,options?.download)},error:null};}catch(error){return {data:null,error};}},
+ upload:async(key:string,bytes:Buffer)=>{try{await putThumbnail(key,bytes);return {error:null};}catch(error){return {error};}}
+})}};
 let service:SupabaseClient|undefined;
-function admin(){if(!process.env.SUPABASE_URL||!process.env.SUPABASE_SECRET_KEY)throw new ApiError('Falta configurar el servidor de respaldo.',503);return service??=createClient(process.env.SUPABASE_URL,process.env.SUPABASE_SECRET_KEY,{auth:{persistSession:false,autoRefreshToken:false}});}
+function admin(){if(usesNeon())return neonService as unknown as SupabaseClient;if(!process.env.SUPABASE_URL||!process.env.SUPABASE_SECRET_KEY)throw new ApiError('Falta configurar el servidor de respaldo.',503);return service??=createClient(process.env.SUPABASE_URL,process.env.SUPABASE_SECRET_KEY,{auth:{persistSession:false,autoRefreshToken:false}});}
 function publicAuth(){return createClient(process.env.SUPABASE_URL!,process.env.SUPABASE_PUBLISHABLE_KEY!,{auth:{persistSession:false,autoRefreshToken:false}});}
 class ApiError extends Error{constructor(message:string,public status=400){super(message);}}
-function check(result:{error:unknown}){if(result.error){console.error('Supabase operation failed',result.error);throw new ApiError('No se pudo guardar en Supabase. Tus cambios locales se conservan.',503);}}
+function check(result:{error:unknown}){if(result.error){console.error('Event repository operation failed',{code:(result.error as {code?:string}).code});throw new ApiError('No se pudo guardar el respaldo. Tus cambios locales se conservan.',503);}}
 const hash=(s:string)=>createHash('sha256').update(s).digest('hex');
 const maxFileBytes=50*1024*1024;
-async function identity(request:Request):Promise<User>{const token=request.headers.get('authorization')?.replace(/^Bearer /i,'');if(!token)throw new ApiError('Ingresa para abrir el registro.',401);const auth=await admin().auth.getUser(token);if(auth.error||!auth.data.user)throw new ApiError('Tu sesión venció. Vuelve a ingresar.',401);const member=await admin().from('oc_members').select('id,email,name,role').eq('id',auth.data.user.id).eq('disabled',false).maybeSingle();check(member);if(!member.data)throw new ApiError('Tu usuario no tiene acceso a este evento.',403);return member.data as User;}
+async function identity(request:Request):Promise<User>{
+ if(usesNeon()){const session=await accountSession(request);if(!session)throw new ApiError('Ingresa para abrir el registro.',401);const member=await admin().from('oc_members').select('id,email,name,role').eq('id',session.user.id).eq('disabled',false).maybeSingle();check(member);if(!member.data)throw new ApiError('Tu usuario no tiene acceso a este evento.',403);return member.data as User;}
+ const token=request.headers.get('authorization')?.replace(/^Bearer /i,'');if(!token)throw new ApiError('Ingresa para abrir el registro.',401);const auth=await admin().auth.getUser(token);if(auth.error||!auth.data.user)throw new ApiError('Tu sesión venció. Vuelve a ingresar.',401);const member=await admin().from('oc_members').select('id,email,name,role').eq('id',auth.data.user.id).eq('disabled',false).maybeSingle();check(member);if(!member.data)throw new ApiError('Tu usuario no tiene acceso a este evento.',403);return member.data as User;}
 function coordinator(user:User){if(user.role!=='coordinator'&&user.role!=='admin')throw new ApiError('Esta acción corresponde al coordinador o administrador.',403);}
 function administrator(user:User){if(user.role!=='admin')throw new ApiError('Solo un administrador puede gestionar el equipo.',403);}
 async function asset(id:string){const r=await admin().from('oc_media').select('*').eq('id',id).maybeSingle();check(r);if(!r.data)throw new ApiError('Archivo no encontrado.',404);return r.data;}
 async function rows(table:string,selection='*'){const list:Record<string,any>[]=[];for(let offset=0;;offset+=1000){const result=await admin().from(table).select(selection).range(offset,offset+999);check(result);list.push(...result.data??[]);if(!result.data||result.data.length<1000)return list;}}
 const account=z.object({name:z.string().trim().min(2).max(100),email:z.string().trim().email().toLowerCase(),password:z.string().min(12).max(200)});
-async function authRoute(request:Request,path:string[]){const action=path[1];if(action==='status'&&request.method==='GET'){const result=await admin().from('oc_members').select('id',{count:'exact',head:true}).in('role',['admin','coordinator']);check(result);return {needsSetup:!result.count};}
+async function authRoute(request:Request,path:string[]){const action=path[1];if(usesNeon()&&['register','login','logout'].includes(action)){if(request.method!=='POST')throw new ApiError('Método no permitido.',405);if(action==='register'){const input=account.parse(await request.clone().json());return accountAction(new Request(request.url,{method:'POST',headers:request.headers,body:JSON.stringify(input)}),action);}return accountAction(request,action);}if(action==='status'&&request.method==='GET'){const result=await admin().from('oc_members').select('id',{count:'exact',head:true}).in('role',['admin','coordinator']);check(result);return {needsSetup:!result.count};}
  if(action==='team'&&request.method==='GET'){const user=await identity(request);administrator(user);return {team:await rows('oc_members','id,email,name,role,disabled')};}
  if(request.method!=='POST')throw new ApiError('Método no permitido.',405);const body=await request.json();
- if(action==='register'||action==='setup'||action==='join'){
+ if(action==='register'||action==='setup'||action==='join'){if(usesNeon())throw new ApiError('Crea tu cuenta desde el formulario de registro.',410);
   const input=account.extend({setupKey:z.string().optional(),code:z.string().optional()}).parse(body);
   if(action==='setup'){const expected=process.env.INITIAL_SETUP_KEY;if(!expected||!timingSafeEqual(Buffer.from(hash(input.setupKey??'')),Buffer.from(hash(expected))))throw new ApiError('El enlace de instalación no es correcto.',403);const count=await admin().from('oc_members').select('id',{count:'exact',head:true}).in('role',['admin','coordinator']);check(count);if(count.count)throw new ApiError('El administrador ya está creado. Ingresa con tu correo.',409);}
   else if(action==='join'){const invite=await admin().from('oc_invites').select('code_hash').eq('code_hash',hash(input.code??'')).is('used_at',null).gt('expires_at',new Date().toISOString()).maybeSingle();check(invite);if(!invite.data)throw new ApiError('La invitación venció o ya fue utilizada.',403);}
@@ -44,7 +55,8 @@ async function authRoute(request:Request,path:string[]){const action=path[1];if(
  throw new ApiError('Acción no encontrada.',404);
 }
 async function dispatch(request:Request){const url=new URL(request.url);const route=url.searchParams.get('route')??url.pathname.replace(/^\/api\/?/,'');const path=route.split('/').filter(Boolean);
- const origin=request.headers.get('origin');if(request.method!=='GET'&&origin&&origin!==url.origin)throw new ApiError('Origen no permitido.',403);
+ const origin=request.headers.get('origin');if(request.method!=='GET'&&origin&&origin!==(process.env.APP_ORIGIN??url.origin))throw new ApiError('Origen no permitido.',403);
+ if(request.method!=='GET'&&request.headers.get('sec-fetch-site')==='cross-site')throw new ApiError('Origen no permitido.',403);
  if(path[0]==='auth')return authRoute(request,path);
  const user=await identity(request);
  if(request.method==='GET'){
@@ -69,6 +81,7 @@ async function dispatch(request:Request){const url=new URL(request.url);const ro
  if(path[0]==='event'){coordinator(user);const event=z.object({name:z.string().min(1).max(150),institution:z.string().max(150),location:z.string().max(100),coordinator:z.string().max(100)}).parse(body);check(await admin().rpc('oc_save_event',{p_actor:user.id,p_value:event}));return {event};}
  if(path[0]==='uploads'&&path[1]==='init'){
   const input=z.object({id:z.string().uuid(),roomId:z.string().uuid(),phase:z.enum(['reception','return']),name:z.string().min(1).max(300),mime:z.string().regex(MEDIA_TYPE),size:z.number().int().positive().max(maxFileBytes),createdAt:z.string().datetime(),note:z.string().max(2000),category:z.string().max(60),duration:z.number().optional(),derivedFrom:z.string().uuid().optional()}).parse(body);
+  if(usesNeon())return beginUpload(input,user);
   const prior=await admin().from('oc_media').select('*').eq('id',input.id).maybeSingle();check(prior);
   if(prior.data){if(prior.data.owner_id!==user.id||prior.data.data.size!==input.size||prior.data.room_id!==input.roomId||prior.data.phase!==input.phase)throw new ApiError('El archivo pertenece a otra carga.',409);if(prior.data.status==='ready')return {ready:true};}
   const objectPath='originals/'+input.id;
@@ -76,11 +89,12 @@ async function dispatch(request:Request){const url=new URL(request.url);const ro
   if(prior.data){const existingFile=await admin().storage.from('evidence').info(objectPath);if(!existingFile.error&&Number(existingFile.data?.size)===input.size){check(await admin().rpc('oc_finish_media',{p_actor:user.id,p_id:input.id}));return {ready:true};}}
   return {objectPath,bucket:'evidence',endpoint:process.env.SUPABASE_URL!.replace('.supabase.co','.storage.supabase.co')+'/storage/v1/upload/resumable'};
  }
- if(path[0]==='uploads'&&path[2]==='complete'){
+ if(path[0]==='uploads'&&path[2]==='complete'){if(usesNeon())return finishUpload(z.string().uuid().parse(path[1]),user);
   const file=await asset(path[1]);if(file.owner_id!==user.id)throw new ApiError('Archivo de otro encargado.',403);if(file.status==='ready')return {ready:true};
   const info=await admin().storage.from('evidence').info(file.object_path);check(info);if(Number(info.data?.size)!==file.data.size)throw new ApiError('El archivo aún no termina de subir.',409);
   check(await admin().rpc('oc_finish_media',{p_actor:user.id,p_id:file.id}));return {ready:true};
  }
+ if(usesNeon()&&path[0]==='uploads'&&path[2]==='part'){const {number}=z.object({number:z.number().int().min(1).max(9)}).parse(body);return signPart(z.string().uuid().parse(path[1]),number,user);}
  if(path[0]==='uploads'&&path[2]==='thumbnail'){
   const file=await asset(path[1]);if(file.owner_id!==user.id&&user.role==='recorder')throw new ApiError('Archivo de otro encargado.',403);
   const input=z.object({base64:z.string().max(1400000)}).parse(body);const bytes=Buffer.from(input.base64,'base64');if(bytes.length>1024*1024||bytes[0]!==255||bytes[1]!==216)throw new ApiError('Miniatura inválida.');
@@ -94,4 +108,4 @@ async function dispatch(request:Request){const url=new URL(request.url);const ro
  if(path[0]==='reports'){const data=z.object({title:z.string().max(200),text:z.string().max(300000),roomIds:z.array(z.string().uuid()).max(1000),kind:z.string().max(30)}).parse(body);const result=await admin().rpc('oc_save_report',{p_actor:user.id,p_value:data});check(result);return {id:result.data};}
  throw new ApiError('Acción no encontrada.',404);
 }
-export async function handleRequest(request:Request){try{if(Number(request.headers.get('content-length')||0)>2*1024*1024)throw new ApiError('Solicitud demasiado grande.',413);const result=await dispatch(request);const response=result instanceof Response?result:Response.json(result);response.headers.set('Cache-Control','no-store');response.headers.set('X-Content-Type-Options','nosniff');return response;}catch(e){if(e instanceof ApiError)return Response.json({error:e.message},{status:e.status});if(e instanceof z.ZodError)return Response.json({error:'Revisa los datos: '+e.issues.map(i=>i.path.join('.')+': '+i.message).join('; ')},{status:400});console.error(e);return Response.json({error:'No se pudo completar la operación. Tus cambios locales se conservan.'},{status:503});}}
+export async function handleRequest(request:Request){try{if(Number(request.headers.get('content-length')||0)>2*1024*1024)throw new ApiError('Solicitud demasiado grande.',413);const result=await dispatch(request);const response=result instanceof Response?result:Response.json(result);response.headers.set('Cache-Control','no-store');response.headers.set('X-Content-Type-Options','nosniff');return response;}catch(e){if(e instanceof ApiError||e instanceof StorageError)return Response.json({error:e.message},{status:e.status});if(e instanceof z.ZodError)return Response.json({error:'Revisa los datos: '+e.issues.map(i=>i.path.join('.')+': '+i.message).join('; ')},{status:400});console.error('Event request failed',{name:e instanceof Error?e.name:'unknown',code:(e as {code?:string})?.code});return Response.json({error:'No se pudo completar la operación. Tus cambios locales se conservan.'},{status:503});}}

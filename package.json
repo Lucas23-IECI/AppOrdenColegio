@@ -14,10 +14,14 @@
     "test:integration": "node --env-file=.env.local --import=tsx --test tests/integration/*.test.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "3.1147.0",
+    "@aws-sdk/s3-request-presigner": "3.1147.0",
     "@base-ui/react": "^1.7.0",
     "@hookform/resolvers": "^5.7.1",
     "@shadcn/react": "^0.3.0",
     "@supabase/supabase-js": "^2.117.2",
+    "bcryptjs": "3.0.3",
+    "better-auth": "1.7.7",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
     "cmdk": "^1.1.1",
@@ -28,6 +32,7 @@
     "jspdf": "^4.2.1",
     "lucide-react": "^1.31.0",
     "next-themes": "^0.4.6",
+    "pg": "8.23.1",
     "qrcode": "^1.5.4",
     "radix-ui": "^1.6.7",
     "react": "19.2.6",
@@ -45,6 +50,7 @@
   "devDependencies": {
     "@tailwindcss/postcss": "4.2.1",
     "@types/node": "22.19.19",
+    "@types/pg": "8.23.1",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "6.0.2",
